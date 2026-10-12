@@ -1,0 +1,53 @@
+# Local Codex working directories
+/work/
+/outputs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# JavaScript / Next.js
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated market data and model artifacts
+/data/raw/*
+/data/interim/*
+/data/processed/*
+!/data/raw/.gitkeep
+!/data/interim/.gitkeep
+!/data/processed/.gitkeep
+/artifacts/*
+!/artifacts/.gitkeep
+
+# Notebooks
+.ipynb_checkpoints/
+
+# IDE / operating system
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

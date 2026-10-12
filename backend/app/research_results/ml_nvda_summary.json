@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "ticker": "NVDA",
+  "experimental_design": {
+    "horizon_days": 5
+  },
+  "comparison": [
+    {
+      "model": "LSTM",
+      "rmse": 0.06147621642502859,
+      "mae": 0.04778746902722296,
+      "direction_accuracy": 0.5607985480943739,
+      "test_observations": 551
+    },
+    {
+      "model": "Linear Regression",
+      "rmse": 0.06163301967862067,
+      "mae": 0.04778309225130888,
+      "direction_accuracy": 0.5553539019963702,
+      "test_observations": 551
+    },
+    {
+      "model": "XGBoost",
+      "rmse": 0.06196801724113807,
+      "mae": 0.047966494722928944,
+      "direction_accuracy": 0.5607985480943739,
+      "test_observations": 551
+    },
+    {
+      "model": "Zero-Return Baseline",
+      "rmse": 0.06203175278877144,
+      "mae": 0.04806867937131937,
+      "direction_accuracy": 0.0,
+      "test_observations": 551
+    }
+  ],
+  "models": {
+    "baseline": {
+      "test_start": "2024-07-11",
+      "test_end": "2026-09-21",
+      "test_observations": 551
+    }
+  }
+}

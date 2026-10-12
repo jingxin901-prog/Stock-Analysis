@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: quantai-api
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements-web.txt
+    startCommand: uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.14
+      - key: QUANTAI_CORS_ORIGINS
+        sync: false
+      - key: QUANTAI_YFINANCE_CACHE_DIR
+        value: /opt/render/project/src/.cache/yfinance
+      - key: QUANTAI_MARKET_DATA_CACHE_DIR
+        value: /opt/render/project/src/.cache/market-data
+      - key: QUANTAI_FUNDAMENTAL_CACHE_DIR
+        value: /opt/render/project/src/.cache/fundamentals

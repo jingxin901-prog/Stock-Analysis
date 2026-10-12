@@ -1,0 +1,10 @@
+# Lightweight dependencies required by the public FastAPI dashboard runtime.
+# Research-training dependencies such as PyTorch and XGBoost remain in pyproject.toml.
+fastapi>=0.115,<1.0
+numpy>=2.0,<3.0
+openai>=3.20,<4.0
+pandas>=3.0,<4.0
+pydantic>=2.11,<3.0
+scipy>=1.15,<2.0
+uvicorn[standard]>=0.35,<1.0
+yfinance>=1.7,<2.0

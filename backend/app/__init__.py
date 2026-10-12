@@ -1,0 +1,1 @@
+"""QuantAI backend application package."""
