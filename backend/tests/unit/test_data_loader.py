@@ -6,7 +6,7 @@ import os
 import unittest
 from tempfile import TemporaryDirectory
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import pandas as pd
 from pandas.testing import assert_frame_equal
@@ -147,6 +147,30 @@ class DataLoaderTests(unittest.TestCase):
 
         with self.assertRaisesRegex(MarketDataDownloadError, "AAPL"):
             load_stock_data("AAPL", downloader=failing_downloader)
+
+    def test_live_provider_retries_transient_failures_with_bounded_backoff(self) -> None:
+        with (
+            TemporaryDirectory() as cache_directory,
+            patch.dict(
+                os.environ,
+                {"QUANTAI_MARKET_DATA_CACHE_DIR": cache_directory},
+            ),
+            patch(
+                "backend.app.quant.data.data_loader._download_with_yfinance",
+                side_effect=[
+                    ConnectionError("rate limited"),
+                    pd.DataFrame(),
+                    sample_provider_frame(),
+                ],
+            ) as downloader,
+            patch("backend.app.quant.data.data_loader.time.sleep") as sleep,
+        ):
+            actual = load_stock_data("MSFT")
+
+        self.assertEqual(downloader.call_count, 3)
+        self.assertEqual(sleep.call_args_list, [call(0.75), call(2.0)])
+        self.assertEqual(actual.attrs["provider_attempts"], 3)
+        self.assertFalse(actual.attrs["served_from_cache"])
 
     def test_provider_failure_uses_exact_persistent_cache(self) -> None:
         def failing_downloader(ticker: str, **kwargs: Any) -> pd.DataFrame:

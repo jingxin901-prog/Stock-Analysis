@@ -7,6 +7,7 @@ the rest of QuantAI does not depend on yfinance-specific column conventions.
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable
 from datetime import date, datetime
 from typing import Any, Final, TypeAlias
@@ -49,6 +50,8 @@ _COLUMN_ALIASES: Final = {
     "adjusted_close": "adjusted_close",
     "volume": "volume",
 }
+_LIVE_DOWNLOAD_ATTEMPTS: Final = 3
+_LIVE_DOWNLOAD_BACKOFF_SECONDS: Final = (0.0, 0.75, 2.0)
 
 
 class MarketDataError(RuntimeError):
@@ -123,48 +126,61 @@ def load_stock_data(
     cache_start = start_date.date().isoformat()
     cache_end = end_date.date().isoformat() if end_date is not None else None
 
-    try:
-        raw_data = download(
-            symbol,
-            start=start_date.date().isoformat(),
-            end=end_date.date().isoformat() if end_date is not None else None,
-            interval="1d",
-            auto_adjust=False,
-            actions=False,
-            prepost=False,
-            repair=False,
-            keepna=False,
-            rounding=False,
-            progress=False,
-            threads=False,
-            ignore_tz=True,
-            group_by="column",
-            multi_level_index=False,
-            timeout=float(timeout),
-        )
-        data = _standardize_market_data(
-            raw_data,
-            ticker=symbol,
-            requested_start=start_date,
-            requested_end=end_date,
-        )
-    except MarketDataError as exc:
-        provider_error: MarketDataError = exc
-    except Exception as exc:
-        provider_error = MarketDataDownloadError(f"Unable to download market data for {symbol}.")
-        provider_error.__cause__ = exc
-    else:
-        data.attrs["source"] = "yfinance"
-        data.attrs["served_from_cache"] = False
-        data.attrs["cached_at_utc"] = None
-        if cache_enabled:
-            write_market_data_cache(
-                data,
-                ticker=symbol,
-                start=cache_start,
-                end=cache_end,
+    attempts = _LIVE_DOWNLOAD_ATTEMPTS if downloader is None else 1
+    provider_error: MarketDataError | None = None
+    for attempt_index in range(attempts):
+        if attempt_index:
+            time.sleep(_LIVE_DOWNLOAD_BACKOFF_SECONDS[attempt_index])
+        try:
+            raw_data = download(
+                symbol,
+                start=start_date.date().isoformat(),
+                end=end_date.date().isoformat() if end_date is not None else None,
+                interval="1d",
+                auto_adjust=False,
+                actions=False,
+                prepost=False,
+                repair=False,
+                keepna=False,
+                rounding=False,
+                progress=False,
+                threads=False,
+                ignore_tz=True,
+                group_by="column",
+                multi_level_index=False,
+                timeout=float(timeout),
             )
-        return data
+            data = _standardize_market_data(
+                raw_data,
+                ticker=symbol,
+                requested_start=start_date,
+                requested_end=end_date,
+            )
+        except MarketDataError as exc:
+            provider_error = exc
+        except Exception as exc:
+            provider_error = MarketDataDownloadError(
+                f"Unable to download market data for {symbol}."
+            )
+            provider_error.__cause__ = exc
+        else:
+            data.attrs["source"] = "yfinance"
+            data.attrs["served_from_cache"] = False
+            data.attrs["cached_at_utc"] = None
+            data.attrs["provider_attempts"] = attempt_index + 1
+            if cache_enabled:
+                write_market_data_cache(
+                    data,
+                    ticker=symbol,
+                    start=cache_start,
+                    end=cache_end,
+                )
+            return data
+
+    if provider_error is None:  # Defensive: attempts is always at least one.
+        provider_error = MarketDataDownloadError(
+            f"Unable to download market data for {symbol}."
+        )
 
     if cache_enabled:
         cached = read_market_data_cache(ticker=symbol, start=cache_start, end=cache_end)

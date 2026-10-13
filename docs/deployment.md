@@ -85,9 +85,15 @@ From the public frontend, verify:
 
 - Free Render Web Services can spin down while idle, so the first request after
   inactivity can be slower.
+- The Blueprint sets `autoDeployTrigger: commit`, so pushes to the linked `main`
+  branch deploy the backend without a separate manual Render action. Confirm the
+  latest commit hash in Render after each release.
 - Render's default filesystem is ephemeral. Market-data caches improve continuity
   within an instance but are lost on a restart or redeploy unless a paid persistent
   disk or external datastore is configured.
 - Yahoo Finance is a research data source and can throttle or temporarily fail.
+  QuantAI limits portfolio downloads to two concurrent symbols, retries live
+  requests with bounded backoff, and then uses an explicitly labeled compatible
+  cache snapshot when one exists.
 - Public production use should add authentication, rate limiting, monitoring, and
   a managed persistent datastore before enabling paid AI explanations.

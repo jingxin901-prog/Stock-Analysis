@@ -848,7 +848,10 @@ def _load_portfolio_market_data(
         return cached
     market_data: dict[str, pd.DataFrame] = {}
     unavailable: list[str] = []
-    with ThreadPoolExecutor(max_workers=min(8, len(symbols))) as executor:
+    # Yahoo throttles bursty cloud-host traffic aggressively. Two workers keep
+    # multi-asset requests responsive without launching one upstream request
+    # per symbol at the same instant; the loader provides bounded retries.
+    with ThreadPoolExecutor(max_workers=min(2, len(symbols))) as executor:
         futures = {
             symbol: executor.submit(load_stock_data, symbol, start=start) for symbol in symbols
         }

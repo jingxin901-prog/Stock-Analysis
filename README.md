@@ -89,8 +89,10 @@ duplicate-free `DatetimeIndex` named `date` and these columns:
 ticker, open, high, low, close, adjusted_close, volume
 ```
 
-Successful live downloads are also written to a range-aware CSV cache outside
-the repository. If a later Yahoo Finance request fails, the loader can reuse the
+Live Yahoo downloads use three bounded attempts with short backoff. Portfolio
+requests cap upstream concurrency at two symbols to reduce cloud-host request
+bursts. Successful downloads are also written to a range-aware CSV cache outside
+the repository. If a later Yahoo Finance request still fails, the loader can reuse the
 newest standardized snapshot whose date range covers the request and trims it to
 the requested window. This lets rolling one-year dashboard queries survive a
 provider interruption after their start date advances. API responses disclose
