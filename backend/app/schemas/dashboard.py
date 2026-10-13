@@ -222,6 +222,7 @@ class PortfolioRequest(BaseModel):
     transaction_cost_bps: float = Field(default=10.0, ge=0.0, le=500.0)
     benchmark: str | None = None
     base_currency: Literal["USD", "CNY", "HKD"] = "USD"
+    covariance_estimator: Literal["sample", "oas"] = "oas"
 
     @field_validator("tickers")
     @classmethod
@@ -248,6 +249,7 @@ class PortfolioRobustnessRequest(BaseModel):
     transaction_cost_bps: float = Field(default=10.0, ge=0.0, le=500.0)
     benchmark: str | None = None
     base_currency: Literal["USD", "CNY", "HKD"] = "USD"
+    covariance_estimator: Literal["sample", "oas"] = "oas"
     lookback_options: list[int] = Field(
         default_factory=lambda: [252, 504, 756], min_length=2, max_length=5
     )
@@ -367,6 +369,7 @@ class BacktestResponse(BaseModel):
     rebalance_days: int
     risk_window_days: int
     transaction_cost_bps: float
+    covariance_estimator: Literal["sample", "oas"]
     total_transaction_cost: float
     strategy: BacktestStatisticsResponse
     benchmark_statistics: BacktestStatisticsResponse
@@ -392,6 +395,7 @@ class PortfolioRobustnessResponse(BaseModel):
     start_date: str
     end_date: str
     benchmark: str
+    covariance_estimator: Literal["sample", "oas"]
     base_currency: Literal["USD", "CNY", "HKD"]
     benchmark_cagr: float
     lookback_options: list[int]
@@ -405,6 +409,28 @@ class PortfolioRobustnessResponse(BaseModel):
     disclaimer: str
 
 
+class EstimationDiagnosticsResponse(BaseModel):
+    covariance_estimator: Literal["sample", "oas"]
+    shrinkage_intensity: float | None
+    covariance_condition_number: float
+    sample_covariance_condition_number: float
+
+
+class EstimatorComparisonResponse(BaseModel):
+    covariance_estimator: Literal["sample", "oas"]
+    shrinkage_intensity: float | None
+    covariance_condition_number: float
+    expected_return: float
+    volatility: float
+    sharpe_ratio: float | None
+    backtest_cagr: float
+    backtest_volatility: float
+    backtest_sharpe_ratio: float | None
+    backtest_maximum_drawdown: float
+    average_turnover: float
+    total_transaction_cost: float
+
+
 class PortfolioResponse(BaseModel):
     tickers: list[str]
     base_currency: Literal["USD", "CNY", "HKD"]
@@ -412,6 +438,9 @@ class PortfolioResponse(BaseModel):
     price_start: str
     price_end: str
     return_observations: int
+    covariance_estimator: Literal["sample", "oas"]
+    estimation_diagnostics: EstimationDiagnosticsResponse
+    estimator_comparison: list[EstimatorComparisonResponse]
     allocation: list[AllocationItem]
     summary: PortfolioSummary
     minimum_volatility: PortfolioSummary

@@ -6,10 +6,27 @@ Adjusted closing prices are inner-aligned across the selected universe. Daily
 simple returns are used to estimate:
 
 - annual expected return as arithmetic mean daily return times 252;
-- annual covariance as daily sample covariance times 252.
+- annual covariance using either daily sample covariance or Oracle
+  Approximating Shrinkage (OAS), then multiplying by 252.
 
 These estimates are highly sensitive to the observation window and should not
 be interpreted as stable forecasts.
+
+### Covariance stability comparison
+
+The dashboard defaults to OAS covariance shrinkage and retains sample
+covariance as a selectable classical baseline. OAS estimates a shrinkage
+intensity from the observations available in each window and pulls the
+empirical covariance toward a scaled identity matrix. This regularizes highly
+correlated or short samples without looking beyond the estimation date.
+
+Every portfolio response reports the selected estimator, shrinkage intensity,
+sample and selected covariance condition numbers, and a side-by-side comparison
+of sample and OAS results. Both methods use identical constraints, lookback,
+rebalance dates, benchmark, and transaction costs. The comparison includes
+in-sample portfolio statistics and cost-inclusive walk-forward CAGR, volatility,
+Sharpe ratio, maximum drawdown, and average turnover. A lower condition number
+indicates improved numerical conditioning, not superior future returns.
 
 ## Markowitz optimization
 
@@ -46,7 +63,8 @@ than applying the final full-sample weights to the past. For each scheduled
 rebalance date, QuantAI:
 
 1. selects only the preceding `backtest_lookback_days` daily observations;
-2. re-estimates annual arithmetic mean returns and annual covariance;
+2. re-estimates annual arithmetic mean returns and the selected annual
+   covariance estimator;
 3. solves the same constrained long-only maximum-Sharpe problem;
 4. deducts `transaction_cost_bps` from portfolio value using one-half of the
    absolute change in risky and cash weights as turnover; and
@@ -95,7 +113,8 @@ analysis.
 ## Limitations
 
 - Sample means are noisy estimates of expected return.
-- Sample covariance may change materially across market regimes.
+- Sample covariance may be ill-conditioned and both sample and shrunk
+  covariance estimates may change materially across market regimes.
 - The single-period optimizer ignores taxes, liquidity, turnover penalties,
   and execution impact; the walk-forward layer models only a simple
   user-supplied proportional transaction cost.

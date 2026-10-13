@@ -24,6 +24,10 @@ function currency(value: number, locale: string, currencyCode: string) {
   return new Intl.NumberFormat(locale, { style: "currency", currency: currencyCode, maximumFractionDigits: 0 }).format(value);
 }
 
+function diagnosticNumber(value: number) {
+  return value >= 1_000_000 ? value.toExponential(2) : value.toFixed(1);
+}
+
 function inferQuoteCurrencies(tickers: string[]) {
   return Array.from(new Set(tickers.map((ticker) => {
     if (ticker.endsWith(".SS") || ticker.endsWith(".SZ")) return "CNY";
@@ -60,6 +64,7 @@ export default function PortfolioOptimizerPage() {
   const [transactionCostBps, setTransactionCostBps] = useState("10");
   const [benchmark, setBenchmark] = useState("AUTO");
   const [baseCurrency, setBaseCurrency] = useState<"USD" | "CNY" | "HKD">("USD");
+  const [covarianceEstimator, setCovarianceEstimator] = useState<"sample" | "oas">("oas");
   const [data, setData] = useState<PortfolioResponse | null>(null);
   const [robustnessData, setRobustnessData] = useState<PortfolioRobustnessResponse | null>(null);
   const [robustnessLoading, setRobustnessLoading] = useState(false);
@@ -85,6 +90,7 @@ export default function PortfolioOptimizerPage() {
     const savedCosts = params.get("costs");
     const savedBenchmark = params.get("benchmark");
     const savedCurrency = params.get("currency");
+    const savedEstimator = params.get("estimator");
     const frame = window.requestAnimationFrame(() => {
       if (savedTickers) setTickers(savedTickers.split("|").join(", "));
       if (savedCash) setCashWeight(savedCash);
@@ -97,6 +103,9 @@ export default function PortfolioOptimizerPage() {
       if (savedBenchmark) setBenchmark(savedBenchmark);
       if (savedCurrency === "USD" || savedCurrency === "CNY" || savedCurrency === "HKD") {
         setBaseCurrency(savedCurrency);
+      }
+      if (savedEstimator === "sample" || savedEstimator === "oas") {
+        setCovarianceEstimator(savedEstimator);
       }
     });
     return () => window.cancelAnimationFrame(frame);
@@ -113,6 +122,7 @@ export default function PortfolioOptimizerPage() {
     costs: number,
     comparisonBenchmark: string,
     displayCurrency: string,
+    estimator: "sample" | "oas",
   ) {
     const params = new URLSearchParams();
     params.set("tickers", symbols.join("|"));
@@ -125,6 +135,7 @@ export default function PortfolioOptimizerPage() {
     params.set("costs", String(costs));
     params.set("benchmark", comparisonBenchmark);
     params.set("currency", displayCurrency);
+    params.set("estimator", estimator);
     return replaceQuery(params);
   }
 
@@ -183,6 +194,7 @@ export default function PortfolioOptimizerPage() {
         transaction_cost_bps: costs,
         benchmark: comparisonBenchmark === "AUTO" ? null : comparisonBenchmark,
         base_currency: baseCurrency,
+        covariance_estimator: covarianceEstimator,
       });
       setData(response);
       scenarioUrl(
@@ -196,6 +208,7 @@ export default function PortfolioOptimizerPage() {
         costs,
         comparisonBenchmark,
         baseCurrency,
+        covarianceEstimator,
       );
     } catch (reason: unknown) {
       setError(getApiErrorMessage(reason, t));
@@ -217,6 +230,7 @@ export default function PortfolioOptimizerPage() {
       Number(transactionCostBps),
       benchmark.trim().toUpperCase() || "AUTO",
       baseCurrency,
+      covarianceEstimator,
     );
     await copyText(url);
     setActionMessage("common.linkCopied");
@@ -254,6 +268,7 @@ export default function PortfolioOptimizerPage() {
         transaction_cost_bps: Number(transactionCostBps),
         benchmark: data.backtest.benchmark,
         base_currency: resolvedBaseCurrency,
+        covariance_estimator: data.covariance_estimator,
       },
       result: data,
     });
@@ -303,6 +318,7 @@ export default function PortfolioOptimizerPage() {
         rebalance_options: [21, 63, 126],
         benchmark: data.backtest.benchmark,
         base_currency: resolvedBaseCurrency,
+        covariance_estimator: data.covariance_estimator,
       });
       setRobustnessData(response);
     } catch (reason: unknown) {
@@ -546,6 +562,17 @@ export default function PortfolioOptimizerPage() {
                 <option value="HKD">HKD</option>
               </select>
             </div>
+            <div className="field">
+              <label htmlFor="covariance-estimator">{t("portfolio.covarianceEstimator")}</label>
+              <select
+                id="covariance-estimator"
+                onChange={(event) => setCovarianceEstimator(event.target.value as "sample" | "oas")}
+                value={covarianceEstimator}
+              >
+                <option value="oas">{t("portfolio.oasEstimator")}</option>
+                <option value="sample">{t("portfolio.sampleEstimator")}</option>
+              </select>
+            </div>
           </div>
         </form>
         <ResearchNotice>{t("portfolio.symbolNotice")}</ResearchNotice>
@@ -579,6 +606,69 @@ export default function PortfolioOptimizerPage() {
             <MetricCard label={t("portfolio.sharpe")} value={data.summary.sharpe_ratio?.toFixed(3) ?? "N/A"} detail={t("portfolio.sharpeDetail")} tone="accent" />
             <MetricCard label={t("portfolio.lossProbability")} value={percent(data.simulation.probability_of_loss)} detail={t("portfolio.pathsDetail", { count: data.simulation.simulations.toLocaleString(numberLocale), seed: data.simulation.seed })} tone="negative" />
           </div>
+
+          <Panel
+            title={t("portfolio.estimatorComparisonTitle")}
+            eyebrow={t("portfolio.estimatorComparisonEyebrow")}
+          >
+            <p className="robustness-copy">{t("portfolio.estimatorComparisonDescription")}</p>
+            <div className="metrics-grid nested-metrics">
+              <MetricCard
+                label={t("portfolio.selectedEstimator")}
+                value={t(data.covariance_estimator === "oas" ? "portfolio.oasShort" : "portfolio.sampleShort")}
+                detail={t("portfolio.selectedEstimatorDetail")}
+                tone="accent"
+              />
+              <MetricCard
+                label={t("portfolio.shrinkageIntensity")}
+                value={data.estimation_diagnostics.shrinkage_intensity === null ? "N/A" : percent(data.estimation_diagnostics.shrinkage_intensity)}
+                detail={t("portfolio.shrinkageDetail")}
+                tone="neutral"
+              />
+              <MetricCard
+                label={t("portfolio.conditionNumber")}
+                value={diagnosticNumber(data.estimation_diagnostics.covariance_condition_number)}
+                detail={t("portfolio.conditionNumberDetail", { value: diagnosticNumber(data.estimation_diagnostics.sample_covariance_condition_number) })}
+                tone={data.estimation_diagnostics.covariance_condition_number < data.estimation_diagnostics.sample_covariance_condition_number ? "positive" : "neutral"}
+              />
+              <MetricCard
+                label={t("portfolio.returnObservations")}
+                value={data.return_observations.toLocaleString(numberLocale)}
+                detail={`${data.price_start} / ${data.price_end}`}
+                tone="neutral"
+              />
+            </div>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead><tr>
+                  <th>{t("portfolio.estimatorMethod")}</th>
+                  <th>{t("portfolio.shrinkageIntensity")}</th>
+                  <th>{t("portfolio.conditionNumber")}</th>
+                  <th>{t("portfolio.inSampleSharpe")}</th>
+                  <th>{t("portfolio.oosCagr")}</th>
+                  <th>{t("portfolio.oosSharpe")}</th>
+                  <th>{t("portfolio.oosDrawdown")}</th>
+                  <th>{t("portfolio.averageTurnover")}</th>
+                </tr></thead>
+                <tbody>{data.estimator_comparison.map((method) => (
+                  <tr key={method.covariance_estimator}>
+                    <td>
+                      <strong>{t(method.covariance_estimator === "oas" ? "portfolio.oasShort" : "portfolio.sampleShort")}</strong>
+                      {method.covariance_estimator === data.covariance_estimator ? ` · ${t("portfolio.selected")}` : ""}
+                    </td>
+                    <td>{method.shrinkage_intensity === null ? "—" : percent(method.shrinkage_intensity)}</td>
+                    <td>{diagnosticNumber(method.covariance_condition_number)}</td>
+                    <td>{method.sharpe_ratio?.toFixed(3) ?? "N/A"}</td>
+                    <td>{percent(method.backtest_cagr)}</td>
+                    <td>{method.backtest_sharpe_ratio?.toFixed(3) ?? "N/A"}</td>
+                    <td>{percent(method.backtest_maximum_drawdown)}</td>
+                    <td>{percent(method.average_turnover)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <ResearchNotice>{t("portfolio.estimatorComparisonNotice")}</ResearchNotice>
+          </Panel>
 
           <div className="two-column">
             <Panel title={t("portfolio.allocation")} eyebrow={t("portfolio.maxSharpe")}>

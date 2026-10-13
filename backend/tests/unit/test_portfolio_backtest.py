@@ -49,6 +49,7 @@ class WalkForwardBacktestTests(unittest.TestCase):
             rebalance_days=63,
             risk_window_days=42,
             transaction_cost_bps=10.0,
+            covariance_estimator="oas",
         )
 
         self.assertGreater(len(result.path), 300)
@@ -58,6 +59,7 @@ class WalkForwardBacktestTests(unittest.TestCase):
         self.assertAlmostEqual(sum(result.rebalances[0].weights.values()), 1.0, places=7)
         self.assertTrue(math_is_finite(result.strategy.cagr))
         self.assertEqual(result.risk_window_days, 42)
+        self.assertEqual(result.covariance_estimator, "oas")
         self.assertTrue(math_is_finite(result.risk_diagnostics.downside_deviation))
         self.assertTrue(math_is_finite(result.risk_diagnostics.tracking_error))
         self.assertIsNotNone(result.risk_diagnostics.beta)
@@ -159,12 +161,14 @@ class WalkForwardBacktestTests(unittest.TestCase):
             lookback_options=(63, 126),
             rebalance_options=(21, 63),
             transaction_cost_bps=10.0,
+            covariance_estimator="oas",
         )
 
         self.assertEqual(len(result.scenarios), 4)
         self.assertEqual(result.start_date, prices.index[126].date().isoformat())
         self.assertEqual(result.lookback_options, [63, 126])
         self.assertEqual(result.rebalance_options, [21, 63])
+        self.assertEqual(result.covariance_estimator, "oas")
         self.assertGreaterEqual(result.positive_excess_fraction, 0.0)
         self.assertLessEqual(result.positive_excess_fraction, 1.0)
         self.assertGreaterEqual(result.cagr_dispersion, 0.0)

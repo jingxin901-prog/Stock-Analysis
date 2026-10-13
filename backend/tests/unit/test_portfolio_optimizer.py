@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import unittest
 
+import numpy as np
 import pandas as pd
 
 from backend.app.quant.portfolio import (
@@ -56,6 +57,39 @@ class MarketEstimateTests(unittest.TestCase):
         self.assertAlmostEqual(estimates.expected_returns["A"], 0.01 * 252, places=10)
         self.assertAlmostEqual(estimates.expected_returns["B"], 0.02 * 252, places=10)
         self.assertEqual(estimates.return_observations, 3)
+        self.assertEqual(estimates.covariance_estimator, "sample")
+        self.assertIsNone(estimates.shrinkage_intensity)
+
+    def test_oas_shrinkage_improves_covariance_conditioning(self) -> None:
+        rng = np.random.default_rng(17)
+        dates = pd.bdate_range("2022-01-03", periods=260)
+        common = rng.normal(0.0004, 0.012, len(dates))
+        returns = np.column_stack(
+            [
+                common + rng.normal(0.0, 0.00008, len(dates)),
+                common + rng.normal(0.0, 0.00008, len(dates)),
+                common + rng.normal(0.0, 0.00008, len(dates)),
+            ]
+        )
+        prices = pd.DataFrame(
+            100.0 * np.cumprod(1.0 + returns, axis=0),
+            index=dates,
+            columns=["A", "B", "C"],
+        )
+
+        estimates = estimate_market_inputs(prices, covariance_estimator="oas")
+
+        self.assertEqual(estimates.covariance_estimator, "oas")
+        self.assertIsNotNone(estimates.shrinkage_intensity)
+        self.assertGreater(estimates.shrinkage_intensity or 0.0, 0.0)
+        self.assertLessEqual(estimates.shrinkage_intensity or 0.0, 1.0)
+        self.assertLess(
+            estimates.covariance_condition_number,
+            estimates.sample_covariance_condition_number,
+        )
+        self.assertTrue(
+            np.all(np.linalg.eigvalsh(estimates.covariance_matrix.to_numpy()) >= -1e-12)
+        )
 
 
 class OptimizationTests(unittest.TestCase):

@@ -5,13 +5,14 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 import numpy as np
 import pandas as pd
 from scipy.optimize import OptimizeResult, minimize
 
 DEFAULT_TRADING_DAYS: Final = 252
+CovarianceEstimator = Literal["sample", "oas"]
 
 
 class PortfolioOptimizationError(ValueError):
@@ -20,7 +21,7 @@ class PortfolioOptimizationError(ValueError):
 
 @dataclass(frozen=True)
 class MarketEstimates:
-    """Annualized sample estimates used by the optimizer."""
+    """Annualized estimates and covariance diagnostics used by the optimizer."""
 
     expected_returns: pd.Series
     covariance_matrix: pd.DataFrame
@@ -28,6 +29,21 @@ class MarketEstimates:
     start_date: str
     end_date: str
     periods_per_year: int
+    covariance_estimator: CovarianceEstimator
+    shrinkage_intensity: float | None
+    covariance_condition_number: float
+    sample_covariance_condition_number: float
+
+
+@dataclass(frozen=True)
+class CovarianceEstimate:
+    """One annualized covariance estimate with stability diagnostics."""
+
+    covariance_matrix: pd.DataFrame
+    estimator: CovarianceEstimator
+    shrinkage_intensity: float | None
+    condition_number: float
+    sample_condition_number: float
 
 
 @dataclass(frozen=True)
@@ -93,8 +109,9 @@ def estimate_market_inputs(
     price_matrix: pd.DataFrame,
     *,
     periods_per_year: int = DEFAULT_TRADING_DAYS,
+    covariance_estimator: CovarianceEstimator = "sample",
 ) -> MarketEstimates:
-    """Estimate arithmetic annual returns and annualized sample covariance."""
+    """Estimate arithmetic annual returns and a selected annualized covariance."""
 
     _validate_price_matrix(price_matrix)
     if isinstance(periods_per_year, bool) or not isinstance(periods_per_year, int):
@@ -108,17 +125,106 @@ def estimate_market_inputs(
         raise PortfolioOptimizationError("At least two aligned return observations are required.")
 
     expected_returns = (returns.mean() * periods_per_year).astype("float64")
-    covariance = (returns.cov(ddof=1) * periods_per_year).astype("float64")
-    covariance = (covariance + covariance.T) / 2.0
+    covariance = estimate_covariance_matrix(
+        returns,
+        periods_per_year=periods_per_year,
+        estimator=covariance_estimator,
+    )
 
     return MarketEstimates(
         expected_returns=expected_returns,
-        covariance_matrix=covariance,
+        covariance_matrix=covariance.covariance_matrix,
         return_observations=len(returns),
         start_date=returns.index.min().date().isoformat(),
         end_date=returns.index.max().date().isoformat(),
         periods_per_year=periods_per_year,
+        covariance_estimator=covariance.estimator,
+        shrinkage_intensity=covariance.shrinkage_intensity,
+        covariance_condition_number=covariance.condition_number,
+        sample_covariance_condition_number=covariance.sample_condition_number,
     )
+
+
+def estimate_covariance_matrix(
+    returns: pd.DataFrame,
+    *,
+    periods_per_year: int = DEFAULT_TRADING_DAYS,
+    estimator: CovarianceEstimator = "sample",
+) -> CovarianceEstimate:
+    """Estimate annualized covariance using sample or OAS shrinkage.
+
+    Oracle Approximating Shrinkage pulls the empirical covariance toward a
+    scaled identity matrix. This reduces estimation noise and ill-conditioning
+    in small or highly correlated universes without using future data.
+    """
+
+    if estimator not in ("sample", "oas"):
+        raise PortfolioOptimizationError(
+            "covariance_estimator must be either 'sample' or 'oas'."
+        )
+    if isinstance(periods_per_year, bool) or not isinstance(periods_per_year, int):
+        raise PortfolioOptimizationError("periods_per_year must be a positive integer.")
+    if periods_per_year <= 0:
+        raise PortfolioOptimizationError("periods_per_year must be a positive integer.")
+    if not isinstance(returns, pd.DataFrame) or returns.shape[1] < 2 or len(returns) < 2:
+        raise PortfolioOptimizationError(
+            "returns must contain at least two observations for at least two assets."
+        )
+    if returns.columns.duplicated().any():
+        raise PortfolioOptimizationError("returns asset columns must be unique.")
+    numeric = returns.apply(pd.to_numeric, errors="coerce")
+    if numeric.isna().any().any() or not np.isfinite(numeric.to_numpy()).all():
+        raise PortfolioOptimizationError("returns must contain finite numeric values.")
+
+    sample_daily = numeric.cov(ddof=1).astype("float64")
+    sample_daily = (sample_daily + sample_daily.T) / 2.0
+    sample_condition_number = _condition_number(sample_daily.to_numpy(dtype="float64"))
+
+    shrinkage_intensity: float | None = None
+    if estimator == "sample":
+        selected_daily = sample_daily
+    else:
+        observations = numeric.to_numpy(dtype="float64")
+        centered = observations - observations.mean(axis=0, keepdims=True)
+        empirical = centered.T @ centered / len(centered)
+        asset_count = empirical.shape[0]
+        mean_variance = float(np.trace(empirical) / asset_count)
+        mean_square = float(np.mean(empirical**2))
+        numerator = mean_square + mean_variance**2
+        denominator = (len(centered) + 1.0) * (
+            mean_square - mean_variance**2 / asset_count
+        )
+        shrinkage_intensity = (
+            1.0
+            if denominator <= 1e-30
+            else float(np.clip(numerator / denominator, 0.0, 1.0))
+        )
+        target = np.eye(asset_count, dtype="float64") * mean_variance
+        shrunk = (
+            (1.0 - shrinkage_intensity) * empirical
+            + shrinkage_intensity * target
+        )
+        selected_daily = pd.DataFrame(
+            (shrunk + shrunk.T) / 2.0,
+            index=numeric.columns,
+            columns=numeric.columns,
+            dtype="float64",
+        )
+
+    annualized = (selected_daily * periods_per_year).astype("float64")
+    annualized = (annualized + annualized.T) / 2.0
+    return CovarianceEstimate(
+        covariance_matrix=annualized,
+        estimator=estimator,
+        shrinkage_intensity=shrinkage_intensity,
+        condition_number=_condition_number(selected_daily.to_numpy(dtype="float64")),
+        sample_condition_number=sample_condition_number,
+    )
+
+
+def _condition_number(covariance: np.ndarray) -> float:
+    value = float(np.linalg.cond(covariance))
+    return value if math.isfinite(value) else float(np.finfo("float64").max)
 
 
 def optimize_max_sharpe(

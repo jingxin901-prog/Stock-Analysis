@@ -10,7 +10,9 @@ import pandas as pd
 
 from .optimizer import (
     DEFAULT_TRADING_DAYS,
+    CovarianceEstimator,
     PortfolioOptimizationError,
+    estimate_covariance_matrix,
     optimize_max_sharpe,
 )
 
@@ -75,6 +77,7 @@ class WalkForwardBacktest:
     rebalance_days: int
     risk_window_days: int
     transaction_cost_bps: float
+    covariance_estimator: CovarianceEstimator
     total_transaction_cost: float
     strategy: BacktestStatistics
     benchmark_statistics: BacktestStatistics
@@ -105,6 +108,7 @@ class BacktestRobustness:
     start_date: str
     end_date: str
     benchmark: str
+    covariance_estimator: CovarianceEstimator
     benchmark_cagr: float
     lookback_options: list[int]
     rebalance_options: list[int]
@@ -130,6 +134,7 @@ def run_walk_forward_backtest(
     rebalance_days: int = 63,
     risk_window_days: int = 63,
     transaction_cost_bps: float = 10.0,
+    covariance_estimator: CovarianceEstimator = "sample",
     periods_per_year: int = DEFAULT_TRADING_DAYS,
 ) -> WalkForwardBacktest:
     """Run a rolling maximum-Sharpe study without using future observations.
@@ -183,8 +188,11 @@ def run_walk_forward_backtest(
     for rebalance_start in range(lookback_days, len(returns), rebalance_days):
         training = asset_returns.iloc[rebalance_start - lookback_days : rebalance_start]
         expected_returns = training.mean() * periods_per_year
-        covariance = training.cov(ddof=1) * periods_per_year
-        covariance = (covariance + covariance.T) / 2.0
+        covariance = estimate_covariance_matrix(
+            training,
+            periods_per_year=periods_per_year,
+            estimator=covariance_estimator,
+        ).covariance_matrix
         result = optimize_max_sharpe(
             expected_returns,
             covariance,
@@ -261,6 +269,7 @@ def run_walk_forward_backtest(
         rebalance_days=rebalance_days,
         risk_window_days=risk_window_days,
         transaction_cost_bps=float(transaction_cost_bps),
+        covariance_estimator=covariance_estimator,
         total_transaction_cost=float(total_transaction_cost),
         strategy=_statistics(strategy_series, risk_free_rate, periods_per_year),
         benchmark_statistics=_statistics(benchmark_series, risk_free_rate, periods_per_year),
@@ -302,6 +311,7 @@ def run_backtest_robustness(
     lookback_options: tuple[int, ...] = (252, 504, 756),
     rebalance_options: tuple[int, ...] = (21, 63, 126),
     transaction_cost_bps: float = 10.0,
+    covariance_estimator: CovarianceEstimator = "sample",
     periods_per_year: int = DEFAULT_TRADING_DAYS,
 ) -> BacktestRobustness:
     """Compare a parameter grid over one common out-of-sample period."""
@@ -342,6 +352,7 @@ def run_backtest_robustness(
                 lookback_days=lookback_days,
                 rebalance_days=rebalance_days,
                 transaction_cost_bps=transaction_cost_bps,
+                covariance_estimator=covariance_estimator,
                 periods_per_year=periods_per_year,
             )
             if common_start_date is None:
@@ -377,6 +388,7 @@ def run_backtest_robustness(
         start_date=common_start_date or "",
         end_date=common_end_date or "",
         benchmark=benchmark_name,
+        covariance_estimator=covariance_estimator,
         benchmark_cagr=float(benchmark_cagr or 0.0),
         lookback_options=lookbacks,
         rebalance_options=rebalances,

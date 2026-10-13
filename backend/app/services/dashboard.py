@@ -51,6 +51,8 @@ from app.schemas.dashboard import (
     BacktestResponse,
     BacktestRiskDiagnosticsResponse,
     BacktestStatisticsResponse,
+    EstimationDiagnosticsResponse,
+    EstimatorComparisonResponse,
     FactorPeerRankingResponse,
     FactorScoreResponse,
     FrontierPoint,
@@ -304,15 +306,23 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
         if frame.attrs.get("served_from_cache", False)
     )
     prices = prepare_price_matrix({ticker: market_data[ticker] for ticker in request.tickers})
-    estimates = estimate_market_inputs(prices)
-    maximum_sharpe = optimize_max_sharpe(
-        estimates.expected_returns,
-        estimates.covariance_matrix,
-        risk_free_rate=request.risk_free_rate,
-        cash_weight=request.cash_weight,
-        min_weight=request.min_weight,
-        max_weight=request.max_weight,
-    )
+    estimates_by_method = {
+        estimator: estimate_market_inputs(prices, covariance_estimator=estimator)
+        for estimator in ("sample", "oas")
+    }
+    maximum_sharpe_by_method = {
+        estimator: optimize_max_sharpe(
+            method_estimates.expected_returns,
+            method_estimates.covariance_matrix,
+            risk_free_rate=request.risk_free_rate,
+            cash_weight=request.cash_weight,
+            min_weight=request.min_weight,
+            max_weight=request.max_weight,
+        )
+        for estimator, method_estimates in estimates_by_method.items()
+    }
+    estimates = estimates_by_method[request.covariance_estimator]
+    maximum_sharpe = maximum_sharpe_by_method[request.covariance_estimator]
     minimum_volatility = optimize_minimum_volatility(
         estimates.expected_returns,
         estimates.covariance_matrix,
@@ -343,20 +353,25 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
         market_data[benchmark]["adjusted_close"],
         requested=request.backtest_lookback_days,
     )
-    backtest = run_walk_forward_backtest(
-        prices,
-        market_data[benchmark]["adjusted_close"],
-        benchmark=benchmark,
-        initial_value=request.initial_value,
-        risk_free_rate=request.risk_free_rate,
-        cash_weight=request.cash_weight,
-        min_weight=request.min_weight,
-        max_weight=request.max_weight,
-        lookback_days=backtest_lookback_days,
-        rebalance_days=request.rebalance_days,
-        risk_window_days=request.risk_window_days,
-        transaction_cost_bps=request.transaction_cost_bps,
-    )
+    backtests_by_method = {
+        estimator: run_walk_forward_backtest(
+            prices,
+            market_data[benchmark]["adjusted_close"],
+            benchmark=benchmark,
+            initial_value=request.initial_value,
+            risk_free_rate=request.risk_free_rate,
+            cash_weight=request.cash_weight,
+            min_weight=request.min_weight,
+            max_weight=request.max_weight,
+            lookback_days=backtest_lookback_days,
+            rebalance_days=request.rebalance_days,
+            risk_window_days=request.risk_window_days,
+            transaction_cost_bps=request.transaction_cost_bps,
+            covariance_estimator=estimator,
+        )
+        for estimator in ("sample", "oas")
+    }
+    backtest = backtests_by_method[request.covariance_estimator]
 
     allocation = [
         AllocationItem(asset=ticker, weight=weight)
@@ -371,6 +386,42 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
         price_start=estimates.start_date,
         price_end=estimates.end_date,
         return_observations=estimates.return_observations,
+        covariance_estimator=request.covariance_estimator,
+        estimation_diagnostics=EstimationDiagnosticsResponse(
+            covariance_estimator=request.covariance_estimator,
+            shrinkage_intensity=estimates.shrinkage_intensity,
+            covariance_condition_number=estimates.covariance_condition_number,
+            sample_covariance_condition_number=estimates.sample_covariance_condition_number,
+        ),
+        estimator_comparison=[
+            EstimatorComparisonResponse(
+                covariance_estimator=estimator,
+                shrinkage_intensity=estimates_by_method[estimator].shrinkage_intensity,
+                covariance_condition_number=(
+                    estimates_by_method[estimator].covariance_condition_number
+                ),
+                expected_return=maximum_sharpe_by_method[estimator].expected_return,
+                volatility=maximum_sharpe_by_method[estimator].volatility,
+                sharpe_ratio=maximum_sharpe_by_method[estimator].sharpe_ratio,
+                backtest_cagr=backtests_by_method[estimator].strategy.cagr,
+                backtest_volatility=(
+                    backtests_by_method[estimator].strategy.annualized_volatility
+                ),
+                backtest_sharpe_ratio=backtests_by_method[estimator].strategy.sharpe_ratio,
+                backtest_maximum_drawdown=(
+                    backtests_by_method[estimator].strategy.maximum_drawdown
+                ),
+                average_turnover=float(
+                    np.mean(
+                        [event.turnover for event in backtests_by_method[estimator].rebalances]
+                    )
+                ),
+                total_transaction_cost=(
+                    backtests_by_method[estimator].total_transaction_cost
+                ),
+            )
+            for estimator in ("sample", "oas")
+        ],
         allocation=allocation,
         summary=_portfolio_summary(maximum_sharpe),
         minimum_volatility=_portfolio_summary(minimum_volatility),
@@ -411,6 +462,7 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
             rebalance_days=backtest.rebalance_days,
             risk_window_days=backtest.risk_window_days,
             transaction_cost_bps=backtest.transaction_cost_bps,
+            covariance_estimator=backtest.covariance_estimator,
             total_transaction_cost=backtest.total_transaction_cost,
             strategy=BacktestStatisticsResponse(**vars(backtest.strategy)),
             benchmark_statistics=BacktestStatisticsResponse(**vars(backtest.benchmark_statistics)),
@@ -425,7 +477,13 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
         ),
         assumptions=[
             "Expected returns use the annualized arithmetic mean of daily simple returns.",
-            "Covariance uses annualized daily sample covariance.",
+            (
+                "Covariance uses annualized daily sample covariance."
+                if request.covariance_estimator == "sample"
+                else "Covariance uses Oracle Approximating Shrinkage toward a scaled "
+                "identity target; the shrinkage intensity is estimated from each "
+                "available historical window."
+            ),
             "Optimization is long-only with explicit cash and per-asset bounds.",
             "Monte Carlo paths use constant-parameter geometric Brownian motion.",
             "Walk-forward weights use trailing observations only and include trading costs.",
@@ -472,11 +530,13 @@ def analyze_portfolio_robustness(
         lookback_options=tuple(request.lookback_options),
         rebalance_options=tuple(request.rebalance_options),
         transaction_cost_bps=request.transaction_cost_bps,
+        covariance_estimator=request.covariance_estimator,
     )
     return PortfolioRobustnessResponse(
         start_date=result.start_date,
         end_date=result.end_date,
         benchmark=result.benchmark,
+        covariance_estimator=result.covariance_estimator,
         base_currency=request.base_currency,
         benchmark_cagr=result.benchmark_cagr,
         lookback_options=result.lookback_options,

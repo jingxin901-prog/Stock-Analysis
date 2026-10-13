@@ -281,6 +281,15 @@ override it. The response includes wealth and
 drawdown paths plus an auditable rebalance log; it does not reuse the
 full-sample allocation as a historical strategy.
 
+For covariance estimation, the dashboard defaults to Oracle Approximating
+Shrinkage (OAS) and keeps sample covariance as a classical baseline. A dedicated
+stability study reruns both estimators under identical constraints, historical
+windows, rebalance dates, benchmark, and transaction costs. It reports
+shrinkage intensity, covariance condition numbers, in-sample statistics, and
+cost-inclusive walk-forward CAGR, volatility, Sharpe ratio, drawdown, and
+turnover. This comparison is diagnostic rather than a claim that the better
+historical estimator will outperform in the future.
+
 Portfolio returns currently use each asset's native quote-currency series.
 Monetary outputs can be labeled USD, CNY, or HKD, but the model does not perform
 foreign-exchange conversion. Cross-currency portfolios therefore require extra
@@ -376,6 +385,7 @@ Open `http://localhost:3000`. The dashboard contains:
   market-matched factor references, shareable ticker URLs, and JSON/CSV exports;
 - **Portfolio Optimizer** with constrained allocations, Plotly efficient
   frontier, Monte Carlo percentile bands, trailing-only walk-forward validation,
+  selectable sample or OAS covariance estimation with a matched estimator study,
   selectable market-aware benchmarks and drawdown comparisons, native-currency
   disclosure, downside and benchmark-relative risk diagnostics,
   rolling volatility and beta, an on-demand common-period parameter sensitivity

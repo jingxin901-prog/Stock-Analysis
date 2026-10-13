@@ -209,6 +209,7 @@ export interface PortfolioRequest {
   transaction_cost_bps?: number;
   benchmark?: string | null;
   base_currency?: "USD" | "CNY" | "HKD";
+  covariance_estimator?: "sample" | "oas";
 }
 
 export interface PortfolioRobustnessRequest {
@@ -224,6 +225,7 @@ export interface PortfolioRobustnessRequest {
   rebalance_options?: number[];
   benchmark?: string | null;
   base_currency?: "USD" | "CNY" | "HKD";
+  covariance_estimator?: "sample" | "oas";
 }
 
 export interface BacktestStatistics {
@@ -279,6 +281,7 @@ export interface PortfolioRobustnessResponse {
   start_date: string;
   end_date: string;
   benchmark: string;
+  covariance_estimator: "sample" | "oas";
   base_currency?: "USD" | "CNY" | "HKD";
   benchmark_cagr: number;
   lookback_options: number[];
@@ -299,6 +302,27 @@ export interface PortfolioResponse {
   price_start: string;
   price_end: string;
   return_observations: number;
+  covariance_estimator: "sample" | "oas";
+  estimation_diagnostics: {
+    covariance_estimator: "sample" | "oas";
+    shrinkage_intensity: number | null;
+    covariance_condition_number: number;
+    sample_covariance_condition_number: number;
+  };
+  estimator_comparison: {
+    covariance_estimator: "sample" | "oas";
+    shrinkage_intensity: number | null;
+    covariance_condition_number: number;
+    expected_return: number;
+    volatility: number;
+    sharpe_ratio: number | null;
+    backtest_cagr: number;
+    backtest_volatility: number;
+    backtest_sharpe_ratio: number | null;
+    backtest_maximum_drawdown: number;
+    average_turnover: number;
+    total_transaction_cost: number;
+  }[];
   allocation: { asset: string; weight: number }[];
   summary: PortfolioPerformance;
   minimum_volatility: PortfolioPerformance;
@@ -322,6 +346,7 @@ export interface PortfolioResponse {
     rebalance_days: number;
     risk_window_days: number;
     transaction_cost_bps: number;
+    covariance_estimator: "sample" | "oas";
     total_transaction_cost: number;
     strategy: BacktestStatistics;
     benchmark_statistics: BacktestStatistics;

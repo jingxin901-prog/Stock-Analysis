@@ -135,12 +135,24 @@ imputed to zero.
 
 Adjusted-price series are inner-aligned before daily simple returns are
 calculated. Expected annual returns are estimated as arithmetic mean daily
-return multiplied by 252, and covariance is estimated as daily sample
-covariance multiplied by 252. Sequential Least Squares Programming solves the
+return multiplied by 252. Covariance is estimated either as daily sample
+covariance or with Oracle Approximating Shrinkage (OAS), then annualized by 252.
+OAS estimates a window-specific shrinkage intensity and pulls the empirical
+matrix toward a scaled identity target to reduce sampling noise and poor
+conditioning. Sequential Least Squares Programming solves the
 long-only maximum-Sharpe and global minimum-volatility problems under explicit
 cash, minimum-weight, and maximum-weight constraints. Repeated
 minimum-volatility solutions at increasing target returns trace the upper
 efficient frontier.
+
+The dashboard treats sample covariance as a classical baseline and OAS as the
+default robust estimator. Both are evaluated with identical constraints,
+trailing windows, rebalance dates, benchmark, and transaction costs. The
+comparison reports matrix condition numbers, in-sample portfolio statistics,
+and cost-inclusive walk-forward CAGR, volatility, Sharpe ratio, maximum
+drawdown, and turnover. This design isolates the covariance choice but does not
+resolve expected-return uncertainty or turn historical selection into a
+forecast.
 
 ### 3.4 Monte Carlo simulation
 
@@ -344,7 +356,8 @@ To support repeatable practical use, the stock workflow includes a browser-local
 watchlist, bilingual company-name and ticker search, ticker-addressable URLs, and
 structured price and research exports.
 The portfolio workflow adds input presets, client-side feasibility screening,
-shareable configuration URLs, and allocation/full-result exports. These tools
+shareable configuration URLs, selectable covariance estimators, a matched
+sample-versus-OAS stability table, and allocation/full-result exports. These tools
 improve reproducibility while keeping historical model output separate from
 investment advice.
 
