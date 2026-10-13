@@ -154,6 +154,15 @@ drawdown, and turnover. This design isolates the covariance choice but does not
 resolve expected-return uncertainty or turn historical selection into a
 forecast.
 
+Two allocation controls test whether the optimized model adds value relative to
+simpler rules. Equal weight divides the risky allocation uniformly and requires
+no covariance input. Constrained risk parity solves for approximately equal
+contributions to portfolio variance under the same cash and asset bounds, using
+the selected covariance estimator. Maximum Sharpe, equal weight, and risk parity
+are evaluated over identical investable dates, rebalance schedules, and
+transaction-cost assumptions. Their cost-inclusive CAGR, volatility, Sharpe
+ratio, maximum drawdown, turnover, and cumulative cost are reported together.
+
 ### 3.4 Monte Carlo simulation
 
 The optimized maximum-Sharpe portfolio is simulated under geometric Brownian
@@ -357,7 +366,8 @@ watchlist, bilingual company-name and ticker search, ticker-addressable URLs, an
 structured price and research exports.
 The portfolio workflow adds input presets, client-side feasibility screening,
 shareable configuration URLs, selectable covariance estimators, a matched
-sample-versus-OAS stability table, and allocation/full-result exports. These tools
+sample-versus-OAS stability table, matched equal-weight and risk-parity controls,
+and allocation/full-result exports. These tools
 improve reproducibility while keeping historical model output separate from
 investment advice.
 

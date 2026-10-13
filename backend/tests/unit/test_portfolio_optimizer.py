@@ -11,8 +11,10 @@ from backend.app.quant.portfolio import (
     PortfolioOptimizationError,
     calculate_efficient_frontier,
     estimate_market_inputs,
+    optimize_equal_weight,
     optimize_max_sharpe,
     optimize_minimum_volatility,
+    optimize_risk_parity,
     prepare_price_matrix,
 )
 
@@ -123,6 +125,29 @@ class OptimizationTests(unittest.TestCase):
 
         self.assertAlmostEqual(sum(result.weights.values()), 0.85, places=8)
         self.assertEqual(result.cash_weight, 0.15)
+
+    def test_equal_weight_baseline_preserves_cash_and_bounds(self) -> None:
+        expected_returns, covariance = analytical_inputs()
+
+        result = optimize_equal_weight(
+            expected_returns,
+            covariance,
+            cash_weight=0.10,
+            max_weight=0.60,
+        )
+
+        self.assertAlmostEqual(result.weights["A"], 0.45, places=8)
+        self.assertAlmostEqual(result.weights["B"], 0.45, places=8)
+        self.assertEqual(result.strategy, "equal_weight")
+
+    def test_risk_parity_matches_inverse_volatility_for_diagonal_covariance(self) -> None:
+        expected_returns, covariance = analytical_inputs()
+
+        result = optimize_risk_parity(expected_returns, covariance)
+
+        self.assertAlmostEqual(result.weights["A"], 1.0 / 3.0, places=4)
+        self.assertAlmostEqual(result.weights["B"], 2.0 / 3.0, places=4)
+        self.assertEqual(result.strategy, "risk_parity")
 
     def test_efficient_frontier_respects_constraints(self) -> None:
         expected_returns, covariance = analytical_inputs()

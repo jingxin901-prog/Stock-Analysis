@@ -323,6 +323,16 @@ export interface PortfolioResponse {
     average_turnover: number;
     total_transaction_cost: number;
   }[];
+  strategy_comparison: {
+    allocation_strategy: "max_sharpe" | "equal_weight" | "risk_parity";
+    covariance_estimator: "sample" | "oas" | null;
+    cagr: number;
+    annualized_volatility: number;
+    sharpe_ratio: number | null;
+    maximum_drawdown: number;
+    average_turnover: number;
+    total_transaction_cost: number;
+  }[];
   allocation: { asset: string; weight: number }[];
   summary: PortfolioPerformance;
   minimum_volatility: PortfolioPerformance;
@@ -347,6 +357,7 @@ export interface PortfolioResponse {
     risk_window_days: number;
     transaction_cost_bps: number;
     covariance_estimator: "sample" | "oas";
+    allocation_strategy: "max_sharpe" | "equal_weight" | "risk_parity";
     total_transaction_cost: number;
     strategy: BacktestStatistics;
     benchmark_statistics: BacktestStatistics;

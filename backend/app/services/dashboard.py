@@ -79,6 +79,7 @@ from app.schemas.dashboard import (
     SimulationSummary,
     StockAnalysisResponse,
     StockExplanationResponse,
+    StrategyComparisonResponse,
     UnavailableMarketInstrument,
 )
 
@@ -372,6 +373,28 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
         for estimator in ("sample", "oas")
     }
     backtest = backtests_by_method[request.covariance_estimator]
+    strategy_backtests = {
+        "max_sharpe": backtest,
+        **{
+            strategy: run_walk_forward_backtest(
+                prices,
+                market_data[benchmark]["adjusted_close"],
+                benchmark=benchmark,
+                initial_value=request.initial_value,
+                risk_free_rate=request.risk_free_rate,
+                cash_weight=request.cash_weight,
+                min_weight=request.min_weight,
+                max_weight=request.max_weight,
+                lookback_days=backtest_lookback_days,
+                rebalance_days=request.rebalance_days,
+                risk_window_days=request.risk_window_days,
+                transaction_cost_bps=request.transaction_cost_bps,
+                covariance_estimator=request.covariance_estimator,
+                allocation_strategy=strategy,
+            )
+            for strategy in ("equal_weight", "risk_parity")
+        },
+    }
 
     allocation = [
         AllocationItem(asset=ticker, weight=weight)
@@ -422,6 +445,31 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
             )
             for estimator in ("sample", "oas")
         ],
+        strategy_comparison=[
+            StrategyComparisonResponse(
+                allocation_strategy=strategy,
+                covariance_estimator=(
+                    None if strategy == "equal_weight" else request.covariance_estimator
+                ),
+                cagr=strategy_backtests[strategy].strategy.cagr,
+                annualized_volatility=(
+                    strategy_backtests[strategy].strategy.annualized_volatility
+                ),
+                sharpe_ratio=strategy_backtests[strategy].strategy.sharpe_ratio,
+                maximum_drawdown=(
+                    strategy_backtests[strategy].strategy.maximum_drawdown
+                ),
+                average_turnover=float(
+                    np.mean(
+                        [event.turnover for event in strategy_backtests[strategy].rebalances]
+                    )
+                ),
+                total_transaction_cost=(
+                    strategy_backtests[strategy].total_transaction_cost
+                ),
+            )
+            for strategy in ("max_sharpe", "equal_weight", "risk_parity")
+        ],
         allocation=allocation,
         summary=_portfolio_summary(maximum_sharpe),
         minimum_volatility=_portfolio_summary(minimum_volatility),
@@ -463,6 +511,7 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
             risk_window_days=backtest.risk_window_days,
             transaction_cost_bps=backtest.transaction_cost_bps,
             covariance_estimator=backtest.covariance_estimator,
+            allocation_strategy=backtest.allocation_strategy,
             total_transaction_cost=backtest.total_transaction_cost,
             strategy=BacktestStatisticsResponse(**vars(backtest.strategy)),
             benchmark_statistics=BacktestStatisticsResponse(**vars(backtest.benchmark_statistics)),

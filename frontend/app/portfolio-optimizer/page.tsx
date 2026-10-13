@@ -670,6 +670,65 @@ export default function PortfolioOptimizerPage() {
             <ResearchNotice>{t("portfolio.estimatorComparisonNotice")}</ResearchNotice>
           </Panel>
 
+          <Panel
+            title={t("portfolio.strategyComparisonTitle")}
+            eyebrow={t("portfolio.strategyComparisonEyebrow")}
+          >
+            <p className="robustness-copy">{t("portfolio.strategyComparisonDescription")}</p>
+            <div className="three-column">
+              {data.strategy_comparison.map((strategy) => (
+                <MetricCard
+                  key={strategy.allocation_strategy}
+                  label={t(
+                    strategy.allocation_strategy === "max_sharpe"
+                      ? "portfolio.maxSharpeStrategy"
+                      : strategy.allocation_strategy === "equal_weight"
+                        ? "portfolio.equalWeightStrategy"
+                        : "portfolio.riskParityStrategy",
+                  )}
+                  value={percent(strategy.cagr)}
+                  detail={`${t("portfolio.sharpe")}: ${strategy.sharpe_ratio?.toFixed(3) ?? "N/A"} · ${t("portfolio.backtestDrawdown")}: ${percent(strategy.maximum_drawdown)}`}
+                  tone={strategy.allocation_strategy === "max_sharpe" ? "accent" : "neutral"}
+                />
+              ))}
+            </div>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead><tr>
+                  <th>{t("portfolio.strategyMethod")}</th>
+                  <th>{t("portfolio.covarianceEstimator")}</th>
+                  <th>{t("portfolio.cagr")}</th>
+                  <th>{t("portfolio.volatility")}</th>
+                  <th>{t("portfolio.sharpe")}</th>
+                  <th>{t("portfolio.backtestDrawdown")}</th>
+                  <th>{t("portfolio.averageTurnover")}</th>
+                  <th>{t("portfolio.tradingCosts")}</th>
+                </tr></thead>
+                <tbody>{data.strategy_comparison.map((strategy) => (
+                  <tr key={strategy.allocation_strategy}>
+                    <td><strong>{t(
+                      strategy.allocation_strategy === "max_sharpe"
+                        ? "portfolio.maxSharpeStrategy"
+                        : strategy.allocation_strategy === "equal_weight"
+                          ? "portfolio.equalWeightStrategy"
+                          : "portfolio.riskParityStrategy",
+                    )}</strong></td>
+                    <td>{strategy.covariance_estimator === null
+                      ? t("portfolio.notApplicable")
+                      : t(strategy.covariance_estimator === "oas" ? "portfolio.oasShort" : "portfolio.sampleShort")}</td>
+                    <td>{percent(strategy.cagr)}</td>
+                    <td>{percent(strategy.annualized_volatility)}</td>
+                    <td>{strategy.sharpe_ratio?.toFixed(3) ?? "N/A"}</td>
+                    <td>{percent(strategy.maximum_drawdown)}</td>
+                    <td>{percent(strategy.average_turnover)}</td>
+                    <td>{currency(strategy.total_transaction_cost, numberLocale, resolvedBaseCurrency)}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <ResearchNotice>{t("portfolio.strategyComparisonNotice")}</ResearchNotice>
+          </Panel>
+
           <div className="two-column">
             <Panel title={t("portfolio.allocation")} eyebrow={t("portfolio.maxSharpe")}>
               <div className="chart-medium"><PlotlyChart data={allocationChart} layout={{ showlegend: false, margin: { l: 25, r: 25, t: 20, b: 25 } }} /></div>

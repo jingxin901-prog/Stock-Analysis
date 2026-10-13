@@ -290,6 +290,13 @@ cost-inclusive walk-forward CAGR, volatility, Sharpe ratio, drawdown, and
 turnover. This comparison is diagnostic rather than a claim that the better
 historical estimator will outperform in the future.
 
+The same response also compares the selected maximum-Sharpe strategy with
+equal-weight and constrained risk-parity portfolios. Each strategy receives the
+same investable dates, cash reserve, rebalance schedule, transaction costs, and
+asset bounds. Cost-inclusive CAGR, volatility, Sharpe ratio, maximum drawdown,
+turnover, and cumulative cost are shown together so model complexity is tested
+against transparent controls rather than assumed to be beneficial.
+
 Portfolio returns currently use each asset's native quote-currency series.
 Monetary outputs can be labeled USD, CNY, or HKD, but the model does not perform
 foreign-exchange conversion. Cross-currency portfolios therefore require extra
@@ -386,6 +393,7 @@ Open `http://localhost:3000`. The dashboard contains:
 - **Portfolio Optimizer** with constrained allocations, Plotly efficient
   frontier, Monte Carlo percentile bands, trailing-only walk-forward validation,
   selectable sample or OAS covariance estimation with a matched estimator study,
+  equal-weight and risk-parity strategy baselines under matched assumptions,
   selectable market-aware benchmarks and drawdown comparisons, native-currency
   disclosure, downside and benchmark-relative risk diagnostics,
   rolling volatility and beta, an on-demand common-period parameter sensitivity

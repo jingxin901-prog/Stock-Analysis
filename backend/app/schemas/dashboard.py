@@ -370,6 +370,7 @@ class BacktestResponse(BaseModel):
     risk_window_days: int
     transaction_cost_bps: float
     covariance_estimator: Literal["sample", "oas"]
+    allocation_strategy: Literal["max_sharpe", "equal_weight", "risk_parity"]
     total_transaction_cost: float
     strategy: BacktestStatisticsResponse
     benchmark_statistics: BacktestStatisticsResponse
@@ -431,6 +432,17 @@ class EstimatorComparisonResponse(BaseModel):
     total_transaction_cost: float
 
 
+class StrategyComparisonResponse(BaseModel):
+    allocation_strategy: Literal["max_sharpe", "equal_weight", "risk_parity"]
+    covariance_estimator: Literal["sample", "oas"] | None
+    cagr: float
+    annualized_volatility: float
+    sharpe_ratio: float | None
+    maximum_drawdown: float
+    average_turnover: float
+    total_transaction_cost: float
+
+
 class PortfolioResponse(BaseModel):
     tickers: list[str]
     base_currency: Literal["USD", "CNY", "HKD"]
@@ -441,6 +453,7 @@ class PortfolioResponse(BaseModel):
     covariance_estimator: Literal["sample", "oas"]
     estimation_diagnostics: EstimationDiagnosticsResponse
     estimator_comparison: list[EstimatorComparisonResponse]
+    strategy_comparison: list[StrategyComparisonResponse]
     allocation: list[AllocationItem]
     summary: PortfolioSummary
     minimum_volatility: PortfolioSummary

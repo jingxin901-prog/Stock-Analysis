@@ -28,6 +28,21 @@ in-sample portfolio statistics and cost-inclusive walk-forward CAGR, volatility,
 Sharpe ratio, maximum drawdown, and average turnover. A lower condition number
 indicates improved numerical conditioning, not superior future returns.
 
+### Strategy baselines
+
+The primary maximum-Sharpe strategy is evaluated beside two transparent
+controls. Equal weight assigns the risky allocation uniformly across assets and
+does not use a covariance estimate. Constrained risk parity chooses long-only
+weights whose contributions to portfolio variance are as equal as the cash and
+per-asset bounds permit, using the selected covariance estimator.
+
+All three strategies use the same investable dates, initial value, cash reserve,
+lookback, rebalance schedule, transaction-cost rate, and asset constraints. The
+API compares cost-inclusive CAGR, annualized volatility, Sharpe ratio, maximum
+drawdown, average turnover, and cumulative modeled cost. These baselines make it
+possible to judge whether optimization complexity added historical value under
+the stated experiment rather than assuming that it did.
+
 ## Markowitz optimization
 
 QuantAI uses constrained Sequential Least Squares Programming (SLSQP) for:
@@ -124,6 +139,8 @@ analysis.
 - Simulated outcomes are conditional model outputs, not forecasts or advice.
 - The backtest uses a selected surviving stock universe and one benchmark, so
   it remains exposed to selection and survivorship bias.
+- Risk parity equalizes modeled variance contributions, not total economic
+  risk, and box constraints can prevent exact equality.
 
 ## Recorded end-to-end validation
 

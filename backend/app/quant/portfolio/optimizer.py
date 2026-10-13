@@ -13,6 +13,7 @@ from scipy.optimize import OptimizeResult, minimize
 
 DEFAULT_TRADING_DAYS: Final = 252
 CovarianceEstimator = Literal["sample", "oas"]
+PortfolioStrategy = Literal["max_sharpe", "equal_weight", "risk_parity"]
 
 
 class PortfolioOptimizationError(ValueError):
@@ -296,6 +297,78 @@ def optimize_minimum_volatility(
     weights = _validated_solver_result(result, risky_weight, bounds, "minimum volatility")
     return _build_result(
         "min_volatility", tickers, weights, mu, covariance, cash_weight, risk_free_rate
+    )
+
+
+def optimize_equal_weight(
+    expected_returns: pd.Series,
+    covariance_matrix: pd.DataFrame,
+    *,
+    risk_free_rate: float = 0.0,
+    cash_weight: float = 0.0,
+    min_weight: float = 0.0,
+    max_weight: float = 1.0,
+) -> PortfolioResult:
+    """Build a transparent equal-weight risky-asset baseline."""
+
+    tickers, mu, covariance = _validated_optimization_inputs(
+        expected_returns, covariance_matrix
+    )
+    _, weights = _weight_constraints(
+        len(tickers),
+        cash_weight=cash_weight,
+        min_weight=min_weight,
+        max_weight=max_weight,
+    )
+    _validate_risk_free_rate(risk_free_rate)
+    return _build_result(
+        "equal_weight", tickers, weights, mu, covariance, cash_weight, risk_free_rate
+    )
+
+
+def optimize_risk_parity(
+    expected_returns: pd.Series,
+    covariance_matrix: pd.DataFrame,
+    *,
+    risk_free_rate: float = 0.0,
+    cash_weight: float = 0.0,
+    min_weight: float = 0.0,
+    max_weight: float = 1.0,
+) -> PortfolioResult:
+    """Find constrained long-only weights with approximately equal risk contributions."""
+
+    tickers, mu, covariance = _validated_optimization_inputs(
+        expected_returns, covariance_matrix
+    )
+    bounds, initial_weights = _weight_constraints(
+        len(tickers),
+        cash_weight=cash_weight,
+        min_weight=min_weight,
+        max_weight=max_weight,
+    )
+    _validate_risk_free_rate(risk_free_rate)
+    risky_weight = 1.0 - cash_weight
+
+    def objective(weights: np.ndarray) -> float:
+        marginal_risk = covariance @ weights
+        contributions = weights * marginal_risk
+        variance = float(contributions.sum())
+        if variance <= 1e-20:
+            return 1e12
+        target = variance / len(weights)
+        return float(np.sum((contributions - target) ** 2) / variance**2)
+
+    result = minimize(
+        objective,
+        initial_weights,
+        method="SLSQP",
+        bounds=bounds,
+        constraints={"type": "eq", "fun": lambda weights: np.sum(weights) - risky_weight},
+        options={"ftol": 1e-12, "maxiter": 1_000, "disp": False},
+    )
+    weights = _validated_solver_result(result, risky_weight, bounds, "risk parity")
+    return _build_result(
+        "risk_parity", tickers, weights, mu, covariance, cash_weight, risk_free_rate
     )
 
 

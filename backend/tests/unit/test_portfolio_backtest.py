@@ -60,6 +60,7 @@ class WalkForwardBacktestTests(unittest.TestCase):
         self.assertTrue(math_is_finite(result.strategy.cagr))
         self.assertEqual(result.risk_window_days, 42)
         self.assertEqual(result.covariance_estimator, "oas")
+        self.assertEqual(result.allocation_strategy, "max_sharpe")
         self.assertTrue(math_is_finite(result.risk_diagnostics.downside_deviation))
         self.assertTrue(math_is_finite(result.risk_diagnostics.tracking_error))
         self.assertIsNotNone(result.risk_diagnostics.beta)
@@ -149,6 +150,37 @@ class WalkForwardBacktestTests(unittest.TestCase):
             with_costs.path[-1].strategy_value,
             without_costs.path[-1].strategy_value,
         )
+
+    def test_simple_strategy_baselines_share_the_same_evaluation_period(self) -> None:
+        prices, benchmark, _ = synthetic_market()
+
+        equal_weight = run_walk_forward_backtest(
+            prices,
+            benchmark,
+            cash_weight=0.10,
+            max_weight=0.80,
+            lookback_days=126,
+            rebalance_days=63,
+            allocation_strategy="equal_weight",
+        )
+        risk_parity = run_walk_forward_backtest(
+            prices,
+            benchmark,
+            cash_weight=0.10,
+            max_weight=0.80,
+            lookback_days=126,
+            rebalance_days=63,
+            covariance_estimator="oas",
+            allocation_strategy="risk_parity",
+        )
+
+        self.assertEqual(equal_weight.start_date, risk_parity.start_date)
+        self.assertEqual(equal_weight.end_date, risk_parity.end_date)
+        self.assertEqual(equal_weight.allocation_strategy, "equal_weight")
+        self.assertEqual(risk_parity.allocation_strategy, "risk_parity")
+        self.assertAlmostEqual(equal_weight.rebalances[0].weights["AAA"], 0.45)
+        self.assertAlmostEqual(equal_weight.rebalances[0].weights["BBB"], 0.45)
+        self.assertTrue(math_is_finite(risk_parity.strategy.cagr))
 
     def test_robustness_grid_uses_one_common_evaluation_period(self) -> None:
         prices, benchmark, _ = synthetic_market()

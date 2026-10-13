@@ -22,7 +22,7 @@ are mounted under `/api/v1`:
 | GET | `/instruments/search?q={query}` | Cached global ticker/company discovery with local fallback |
 | GET | `/stocks/{ticker}` | Price, risk, factor, fundamental, and saved ML evidence |
 | GET | `/stocks/{ticker}/explanation?locale={en,zh-CN}` | Localized explanation of computed evidence |
-| POST | `/portfolio/optimize` | Allocation, frontier, Monte Carlo, and walk-forward analysis |
+| POST | `/portfolio/optimize` | Allocation, frontier, Monte Carlo, estimator diagnostics, and matched strategy baselines |
 | POST | `/portfolio/robustness` | Common-period walk-forward parameter grid |
 
 Pydantic models validate requests and responses and populate the generated
@@ -84,6 +84,8 @@ The three primary routes are:
   presets, stores model and backtest inputs in a shareable URL, visualizes
   wealth, drawdown, rolling volatility, and rolling beta paths, exposes
   downside and benchmark-relative diagnostics plus recent rebalance decisions,
+  compares sample and OAS covariance estimators, and benchmarks maximum Sharpe
+  against equal-weight and risk-parity allocations under matched assumptions,
   runs an optional common-period parameter-sensitivity heatmap, and exports
   allocation CSV, risk-enriched backtest CSV, robustness-grid CSV, and the full
   structured result.

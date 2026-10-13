@@ -12,8 +12,11 @@ from .optimizer import (
     DEFAULT_TRADING_DAYS,
     CovarianceEstimator,
     PortfolioOptimizationError,
+    PortfolioStrategy,
     estimate_covariance_matrix,
+    optimize_equal_weight,
     optimize_max_sharpe,
+    optimize_risk_parity,
 )
 
 
@@ -78,6 +81,7 @@ class WalkForwardBacktest:
     risk_window_days: int
     transaction_cost_bps: float
     covariance_estimator: CovarianceEstimator
+    allocation_strategy: PortfolioStrategy
     total_transaction_cost: float
     strategy: BacktestStatistics
     benchmark_statistics: BacktestStatistics
@@ -135,9 +139,10 @@ def run_walk_forward_backtest(
     risk_window_days: int = 63,
     transaction_cost_bps: float = 10.0,
     covariance_estimator: CovarianceEstimator = "sample",
+    allocation_strategy: PortfolioStrategy = "max_sharpe",
     periods_per_year: int = DEFAULT_TRADING_DAYS,
 ) -> WalkForwardBacktest:
-    """Run a rolling maximum-Sharpe study without using future observations.
+    """Run a rolling allocation study without using future observations.
 
     At each rebalance, estimates use only the immediately preceding lookback
     window. Target weights are then held without rebalancing until the next
@@ -193,7 +198,16 @@ def run_walk_forward_backtest(
             periods_per_year=periods_per_year,
             estimator=covariance_estimator,
         ).covariance_matrix
-        result = optimize_max_sharpe(
+        optimizer = {
+            "max_sharpe": optimize_max_sharpe,
+            "equal_weight": optimize_equal_weight,
+            "risk_parity": optimize_risk_parity,
+        }.get(allocation_strategy)
+        if optimizer is None:
+            raise PortfolioOptimizationError(
+                "allocation_strategy must be 'max_sharpe', 'equal_weight', or 'risk_parity'."
+            )
+        result = optimizer(
             expected_returns,
             covariance,
             risk_free_rate=risk_free_rate,
@@ -270,6 +284,7 @@ def run_walk_forward_backtest(
         risk_window_days=risk_window_days,
         transaction_cost_bps=float(transaction_cost_bps),
         covariance_estimator=covariance_estimator,
+        allocation_strategy=allocation_strategy,
         total_transaction_cost=float(total_transaction_cost),
         strategy=_statistics(strategy_series, risk_free_rate, periods_per_year),
         benchmark_statistics=_statistics(benchmark_series, risk_free_rate, periods_per_year),
