@@ -354,6 +354,33 @@ class BacktestRiskDiagnosticsResponse(BaseModel):
     benchmark_longest_drawdown_days: int
 
 
+class BootstrapMetricIntervalResponse(BaseModel):
+    estimate: float | None
+    lower: float | None
+    median: float | None
+    upper: float | None
+
+
+class BootstrapPathStatisticsResponse(BaseModel):
+    cagr: BootstrapMetricIntervalResponse
+    annualized_volatility: BootstrapMetricIntervalResponse
+    sharpe_ratio: BootstrapMetricIntervalResponse
+    maximum_drawdown: BootstrapMetricIntervalResponse
+
+
+class BacktestBootstrapUncertaintyResponse(BaseModel):
+    method: Literal["paired_circular_moving_block"]
+    confidence_level: float
+    resamples: int
+    block_length_days: int
+    seed: int
+    observations: int
+    strategy: BootstrapPathStatisticsResponse
+    benchmark: BootstrapPathStatisticsResponse
+    strategy_cagr_above_benchmark_fraction: float
+    disclaimer: str
+
+
 class RebalanceEventResponse(BaseModel):
     date: str
     turnover: float
@@ -375,6 +402,7 @@ class BacktestResponse(BaseModel):
     strategy: BacktestStatisticsResponse
     benchmark_statistics: BacktestStatisticsResponse
     risk_diagnostics: BacktestRiskDiagnosticsResponse
+    bootstrap_uncertainty: BacktestBootstrapUncertaintyResponse
     path: list[BacktestPathPointResponse]
     rebalances: list[RebalanceEventResponse]
     disclaimer: str

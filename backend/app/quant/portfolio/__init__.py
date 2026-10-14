@@ -11,6 +11,12 @@ from .backtest import (
     run_backtest_robustness,
     run_walk_forward_backtest,
 )
+from .bootstrap import (
+    BacktestBootstrapUncertainty,
+    BootstrapMetricInterval,
+    BootstrapPathStatistics,
+    bootstrap_backtest_uncertainty,
+)
 from .optimizer import (
     DEFAULT_TRADING_DAYS,
     CovarianceEstimate,
@@ -30,10 +36,13 @@ from .optimizer import (
 )
 
 __all__ = [
+    "BacktestBootstrapUncertainty",
     "BacktestPoint",
     "BacktestRobustness",
     "BacktestRiskDiagnostics",
     "BacktestStatistics",
+    "BootstrapMetricInterval",
+    "BootstrapPathStatistics",
     "CovarianceEstimate",
     "CovarianceEstimator",
     "DEFAULT_TRADING_DAYS",
@@ -44,6 +53,7 @@ __all__ = [
     "RebalanceEvent",
     "RobustnessScenario",
     "WalkForwardBacktest",
+    "bootstrap_backtest_uncertainty",
     "calculate_efficient_frontier",
     "estimate_covariance_matrix",
     "estimate_market_inputs",

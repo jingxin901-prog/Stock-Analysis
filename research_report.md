@@ -206,6 +206,15 @@ market regime. Each grid cell reruns optimization, weight drift, turnover, and
 transaction costs; summary statistics describe dispersion rather than selecting
 only the best-performing cell.
 
+Sampling uncertainty in the primary walk-forward path is summarized through a
+paired circular moving-block bootstrap. Strategy and benchmark returns share
+the same sampled 21-trading-day blocks in each of 1,000 seeded resamples. This
+preserves contemporaneous dependence and partial short-horizon serial structure.
+Central 95% percentile intervals are reported for CAGR, annualized volatility,
+Sharpe ratio, and maximum drawdown alongside their observed values and bootstrap
+medians. These are conditional historical uncertainty summaries rather than
+forecast intervals.
+
 ### 3.6 Machine-learning experiments
 
 The supervised-learning experiment predicts the next five-trading-day simple
@@ -263,6 +272,10 @@ The robustness experiment crosses 252-, 504-, and 756-day estimation windows
 with 21-, 63-, and 126-day rebalance intervals. All nine scenarios use the same
 3 January 2018 through 29 September 2026 evaluation period.
 
+The uncertainty experiment uses 1,000 paired circular moving-block resamples,
+a 21-trading-day block length, and seed 42 on the primary walk-forward strategy
+and benchmark paths.
+
 ## 5. Results
 
 The initial live-data validation passed for all six sample securities. Financial
@@ -306,6 +319,15 @@ strategy remained below a previous peak for as many as 421 consecutive trading
 observations, compared with 488 for SPY. These diagnostics show that the higher
 retrospective return did not imply low risk or rapid recovery.
 
+The paired block-bootstrap extension was revalidated on 14 October 2026 using
+2,201 aligned returns through 7 October 2026. Across 1,000 seeded resamples, the
+observed 32.43% strategy CAGR had a central 95% percentile interval of 8.84% to
+64.17%, the observed 1.034 Sharpe ratio had an interval of 0.421 to 1.738, and
+the observed -55.72% maximum drawdown had an interval of -66.10% to -27.22%.
+Strategy CAGR exceeded SPY CAGR in 97.70% of the paired resamples. This high
+conditional frequency does not remove the selected-universe and regime
+limitations and is not a probability statement about future performance.
+
 Across the nine common-period parameter scenarios, CAGR ranged from 32.10% to
 40.43% and had a 35.40% median. Median Sharpe ratio was 1.078, and the worst
 maximum drawdown was -56.60%. Every tested scenario exceeded the 14.39% SPY CAGR.
@@ -347,6 +369,11 @@ Hyperparameters are illustrative. The portfolio backtest incorporates a simple
 proportional transaction-cost input, but none of the current experiments models
 bid-ask spread variation, market impact, latency, taxes, borrow availability, or
 a tradable execution protocol.
+
+The bootstrap analysis conditions on the realized historical path and researcher-
+selected universe. Although block sampling partially retains short-run dependence,
+it does not represent structural breaks, changing liquidity, or unseen regimes,
+and its percentile bounds should not be interpreted as future confidence bands.
 
 The completed presentation layer uses typed FastAPI endpoints and a Next.js
 dashboard to expose the research results. This separation keeps analytical
@@ -395,6 +422,7 @@ conversion, additional local peer catalogs beyond the currently supported US,
 China A-share, and Hong Kong markets, cross-asset and delisted-security
 universes, nested validation of
 parameter choices, non-overlapping-target robustness checks, uncertainty
-estimates, timestamped fundamental histories, PostgreSQL persistence,
+estimates beyond conditional block resampling, timestamped fundamental histories,
+PostgreSQL persistence,
 production deployment controls, prompt-regression evals, and monitored
 explanation quality.

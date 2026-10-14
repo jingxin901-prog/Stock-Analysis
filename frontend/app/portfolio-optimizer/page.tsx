@@ -28,6 +28,18 @@ function diagnosticNumber(value: number) {
   return value >= 1_000_000 ? value.toExponential(2) : value.toFixed(1);
 }
 
+function bootstrapValue(value: number | null, format: "percent" | "ratio") {
+  if (value === null) return "N/A";
+  return format === "percent" ? percent(value) : value.toFixed(3);
+}
+
+const bootstrapMetrics = [
+  { key: "cagr", label: "portfolio.bootstrapCagr", format: "percent" },
+  { key: "annualized_volatility", label: "portfolio.bootstrapVolatility", format: "percent" },
+  { key: "sharpe_ratio", label: "portfolio.bootstrapSharpe", format: "ratio" },
+  { key: "maximum_drawdown", label: "portfolio.bootstrapDrawdown", format: "percent" },
+] as const;
+
 function inferQuoteCurrencies(tickers: string[]) {
   return Array.from(new Set(tickers.map((ticker) => {
     if (ticker.endsWith(".SS") || ticker.endsWith(".SZ")) return "CNY";
@@ -769,6 +781,58 @@ export default function PortfolioOptimizerPage() {
                 <div className="chart-medium"><PlotlyChart data={backtestDrawdownChart} layout={{ hovermode: "x unified", xaxis: { gridcolor: "rgba(148,163,184,.12)" }, yaxis: { gridcolor: "rgba(148,163,184,.12)", ticksuffix: "%" }, legend: { orientation: "h", y: 1.12 } }} /></div>
               </Panel>
             </div>
+            {data.backtest.bootstrap_uncertainty ? <Panel
+              title={t("portfolio.bootstrapTitle")}
+              eyebrow={t("portfolio.bootstrapEyebrow")}
+              className="nested-panel"
+            >
+              <p className="robustness-copy">{t("portfolio.bootstrapDescription", {
+                block: data.backtest.bootstrap_uncertainty.block_length_days,
+                confidence: Math.round(data.backtest.bootstrap_uncertainty.confidence_level * 100),
+                resamples: data.backtest.bootstrap_uncertainty.resamples.toLocaleString(numberLocale),
+              })}</p>
+              <div className="metrics-grid nested-metrics">
+                <MetricCard
+                  label={t("portfolio.bootstrapOutperformance", { benchmark: data.backtest.benchmark })}
+                  value={percent(data.backtest.bootstrap_uncertainty.strategy_cagr_above_benchmark_fraction)}
+                  detail={t("portfolio.bootstrapOutperformanceDetail")}
+                  tone="accent"
+                />
+                <MetricCard
+                  label={t("portfolio.returnObservations")}
+                  value={data.backtest.bootstrap_uncertainty.observations.toLocaleString(numberLocale)}
+                  detail={`${data.backtest.bootstrap_uncertainty.resamples.toLocaleString(numberLocale)} × ${data.backtest.bootstrap_uncertainty.block_length_days}d · seed ${data.backtest.bootstrap_uncertainty.seed}`}
+                  tone="neutral"
+                />
+              </div>
+              <div className="table-scroll">
+                <table className="data-table bootstrap-table">
+                  <thead><tr>
+                    <th>{t("portfolio.bootstrapMetric")}</th>
+                    <th>{t("portfolio.bootstrapSeries")}</th>
+                    <th>{t("portfolio.bootstrapEstimate")}</th>
+                    <th>{t("portfolio.bootstrapMedian")}</th>
+                    <th>{t("portfolio.bootstrapInterval", { confidence: Math.round(data.backtest.bootstrap_uncertainty.confidence_level * 100) })}</th>
+                  </tr></thead>
+                  <tbody>{bootstrapMetrics.flatMap((definition) => (
+                    (["strategy", "benchmark"] as const).map((series) => {
+                      const interval = data.backtest.bootstrap_uncertainty?.[series][definition.key];
+                      if (!interval) return null;
+                      return <tr key={`${definition.key}-${series}`}>
+                        <td><strong>{t(definition.label)}</strong></td>
+                        <td>{series === "strategy"
+                          ? t("portfolio.bootstrapStrategy")
+                          : t("portfolio.bootstrapBenchmark", { benchmark: data.backtest.benchmark })}</td>
+                        <td>{bootstrapValue(interval.estimate, definition.format)}</td>
+                        <td>{bootstrapValue(interval.median, definition.format)}</td>
+                        <td>{bootstrapValue(interval.lower, definition.format)} – {bootstrapValue(interval.upper, definition.format)}</td>
+                      </tr>;
+                    })
+                  ))}</tbody>
+                </table>
+              </div>
+              <ResearchNotice>{t("portfolio.bootstrapNotice")}</ResearchNotice>
+            </Panel> : null}
             {data.backtest.risk_diagnostics ? <>
               <div className="panel-heading risk-heading">
                 <div>

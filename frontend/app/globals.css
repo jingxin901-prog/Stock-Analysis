@@ -621,6 +621,8 @@ body {
 .data-table td { color: #9da8b6; border-color: rgba(148, 163, 184, 0.09); }
 .data-table td:first-child { color: #dfe4eb; }
 .data-table tbody tr:hover td { background: rgba(240, 162, 58, 0.045); }
+.bootstrap-table { min-width: 720px; }
+.bootstrap-table th, .bootstrap-table td { white-space: nowrap; }
 .factor-ranking-table .target-row td { color: #f0d8b2; background: rgba(240, 162, 58, 0.08); }
 .valuation-mini { color: var(--ink); background: #0e151e; border-color: rgba(148, 163, 184, 0.14); border-radius: 3px; }
 .valuation-mini > strong { color: #d9dfe6; }

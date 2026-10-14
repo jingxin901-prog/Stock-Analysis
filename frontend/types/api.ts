@@ -258,6 +258,33 @@ export interface BacktestRiskDiagnostics {
   benchmark_longest_drawdown_days: number;
 }
 
+export interface BootstrapMetricInterval {
+  estimate: number | null;
+  lower: number | null;
+  median: number | null;
+  upper: number | null;
+}
+
+export interface BootstrapPathStatistics {
+  cagr: BootstrapMetricInterval;
+  annualized_volatility: BootstrapMetricInterval;
+  sharpe_ratio: BootstrapMetricInterval;
+  maximum_drawdown: BootstrapMetricInterval;
+}
+
+export interface BacktestBootstrapUncertainty {
+  method: "paired_circular_moving_block";
+  confidence_level: number;
+  resamples: number;
+  block_length_days: number;
+  seed: number;
+  observations: number;
+  strategy: BootstrapPathStatistics;
+  benchmark: BootstrapPathStatistics;
+  strategy_cagr_above_benchmark_fraction: number;
+  disclaimer: string;
+}
+
 export interface RebalanceEvent {
   date: string;
   turnover: number;
@@ -362,6 +389,7 @@ export interface PortfolioResponse {
     strategy: BacktestStatistics;
     benchmark_statistics: BacktestStatistics;
     risk_diagnostics: BacktestRiskDiagnostics;
+    bootstrap_uncertainty?: BacktestBootstrapUncertainty;
     path: BacktestPathPoint[];
     rebalances: RebalanceEvent[];
     disclaimer: string;

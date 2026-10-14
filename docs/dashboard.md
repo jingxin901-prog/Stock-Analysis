@@ -84,6 +84,7 @@ The three primary routes are:
   presets, stores model and backtest inputs in a shareable URL, visualizes
   wealth, drawdown, rolling volatility, and rolling beta paths, exposes
   downside and benchmark-relative diagnostics plus recent rebalance decisions,
+  reports paired block-bootstrap uncertainty intervals for principal path metrics,
   compares sample and OAS covariance estimators, and benchmarks maximum Sharpe
   against equal-weight and risk-parity allocations under matched assumptions,
   runs an optional common-period parameter-sensitivity heatmap, and exports
@@ -132,6 +133,11 @@ response. Sortino, downside deviation, beta, correlation, tracking error,
 information ratio, drawdown duration, and 63-day rolling series all returned
 finite values after their required warm-up window.
 
+The uncertainty extension is covered by deterministic unit tests for seeded
+reproducibility, ordered percentile bounds, paired strategy/benchmark sampling,
+constant-path Sharpe handling, and invalid path alignment. Frontend type checking,
+linting, and a production build also validate the bilingual table contract.
+
 ## Limitations
 
 - Yahoo Finance responses are not guaranteed, institutional, or real-time.
@@ -141,6 +147,8 @@ finite values after their required warm-up window.
   vendor data or calculated results.
 - Walk-forward output is hypothetical and remains sensitive to the selected
   surviving universe, lookback, rebalance schedule, cost input, and benchmark.
+- Bootstrap intervals describe variation under historical block resampling; they
+  do not capture regime changes or imply future coverage.
 - Factor values are current snapshots; they are not point-in-time backtests.
 - Saved ML metrics are historical holdout evidence, not current forecasts.
 - OpenAI text generation requires a server-side API key; deterministic evidence

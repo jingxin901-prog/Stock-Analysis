@@ -299,6 +299,14 @@ asset bounds. Cost-inclusive CAGR, volatility, Sharpe ratio, maximum drawdown,
 turnover, and cumulative cost are shown together so model complexity is tested
 against transparent controls rather than assumed to be beneficial.
 
+The primary walk-forward path also includes a paired circular moving-block
+bootstrap. QuantAI applies the same sampled 21-trading-day blocks to strategy
+and benchmark returns for 1,000 seeded resamples, then reports observed values,
+bootstrap medians, and central 95% percentile intervals for CAGR, annualized
+volatility, Sharpe ratio, and maximum drawdown. The accompanying fraction of
+resamples in which strategy CAGR exceeds benchmark CAGR is a conditional
+historical resampling diagnostic, not a probability of future outperformance.
+
 Portfolio returns currently use each asset's native quote-currency series.
 Monetary outputs can be labeled USD, CNY, or HKD, but the model does not perform
 foreign-exchange conversion. Cross-currency portfolios therefore require extra
@@ -312,6 +320,14 @@ and the AAPL/MSFT/NVDA/TSLA universe. From 3 January 2018 through 29 September
 rebalances. SPY recorded a 14.39% CAGR over the same displayed period. These
 time-sensitive results are subject to universe selection, survivorship bias,
 unstable estimates, and simplified execution assumptions.
+
+A refreshed paired block-bootstrap check on 14 October 2026 used 2,201 returns
+through 7 October 2026. The observed strategy CAGR was 32.43%, with a central
+95% percentile interval of 8.84% to 64.17%; observed Sharpe was 1.034, with an
+interval of 0.421 to 1.738; and observed maximum drawdown was -55.72%, with an
+interval of -66.10% to -27.22%. Strategy CAGR exceeded SPY CAGR in 97.70% of the
+paired resamples. These values describe this historical experiment and do not
+estimate the probability of future outperformance.
 
 The same run reported a 1.499 Sortino ratio, 22.04% annualized downside
 deviation, 1.267 beta and 0.748 return correlation versus SPY, 21.98% tracking
@@ -398,7 +414,8 @@ Open `http://localhost:3000`. The dashboard contains:
   equal-weight and risk-parity strategy baselines under matched assumptions,
   selectable market-aware benchmarks and drawdown comparisons, native-currency
   disclosure, downside and benchmark-relative risk diagnostics,
-  rolling volatility and beta, an on-demand common-period parameter sensitivity
+  rolling volatility and beta, paired block-bootstrap uncertainty intervals,
+  an on-demand common-period parameter sensitivity
   grid, an auditable rebalance log, constraint feasibility checks, shareable input
   URLs, and allocation/backtest/grid/full-result exports.
 

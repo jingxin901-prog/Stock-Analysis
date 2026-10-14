@@ -109,6 +109,24 @@ Rolling strategy volatility, benchmark volatility, and beta use the requested
 `risk_window_days` observations. Early path points remain null until the first
 complete window rather than being calculated from inconsistent sample lengths.
 
+### Bootstrap uncertainty intervals
+
+The primary strategy and benchmark paths are converted to aligned daily simple
+returns and evaluated with a paired circular moving-block bootstrap. Each of
+1,000 seeded resamples concatenates randomly selected 21-trading-day blocks
+until it reaches the original sample length. Applying identical positions to
+both return series preserves their contemporaneous relationship, while blocks
+retain more local time dependence than independent daily resampling.
+
+For strategy and benchmark separately, the API reports the observed estimate,
+bootstrap median, and central 95% percentile interval for CAGR, annualized
+volatility, Sharpe ratio, and maximum drawdown. It also reports the fraction of
+paired resamples in which strategy CAGR exceeds benchmark CAGR. This fraction
+is a descriptive resampling frequency, not a Bayesian probability or a forecast
+of future outperformance. The intervals condition on the selected assets,
+period, strategy rules, and realized returns; they do not correct survivorship,
+selection, model, or regime uncertainty.
+
 ### Parameter robustness grid
 
 The optional robustness study crosses two to five estimation lookbacks with two
@@ -137,6 +155,9 @@ analysis.
 - GBM assumes lognormal prices and constant parameters, understating jumps,
   volatility clustering, skewness, and extreme tails.
 - Simulated outcomes are conditional model outputs, not forecasts or advice.
+- Bootstrap percentile intervals condition on one observed historical period;
+  they do not model structural breaks or convert backtest results into population
+  guarantees.
 - The backtest uses a selected surviving stock universe and one benchmark, so
   it remains exposed to selection and survivorship bias.
 - Risk parity equalizes modeled variance contributions, not total economic
@@ -215,6 +236,15 @@ tracking error, and 0.809 information ratio. The strategy's longest underwater
 period was 421 trading days versus 488 for SPY. These values summarize this
 realized hypothetical path and should not be treated as stable population
 parameters.
+
+On 14 October 2026, the paired 1,000-resample block bootstrap was revalidated on
+2,201 aligned daily returns through 7 October 2026. The strategy's observed
+CAGR of 32.43% had a central 95% percentile interval of 8.84% to 64.17%; its
+32.21% volatility had an interval of 29.36% to 35.19%; its 1.034 Sharpe ratio
+had an interval of 0.421 to 1.738; and its -55.72% maximum drawdown had an
+interval of -66.10% to -27.22%. Strategy CAGR exceeded SPY CAGR in 97.70% of
+paired resamples. This is a historical resampling result, not a future success
+probability.
 
 The default 3-by-3 grid used 252-, 504-, and 756-day lookbacks with 21-, 63-,
 and 126-day rebalance intervals. Across the common 3 January 2018 to 29 September

@@ -36,6 +36,7 @@ from app.quant.factors import build_factor_record, score_factor_universe
 from app.quant.metrics import calculate_financial_metrics
 from app.quant.portfolio import (
     PortfolioOptimizationError,
+    bootstrap_backtest_uncertainty,
     calculate_efficient_frontier,
     estimate_market_inputs,
     optimize_max_sharpe,
@@ -47,10 +48,13 @@ from app.quant.portfolio import (
 from app.quant.simulation import simulate_portfolio_paths
 from app.schemas.dashboard import (
     AllocationItem,
+    BacktestBootstrapUncertaintyResponse,
     BacktestPathPointResponse,
     BacktestResponse,
     BacktestRiskDiagnosticsResponse,
     BacktestStatisticsResponse,
+    BootstrapMetricIntervalResponse,
+    BootstrapPathStatisticsResponse,
     EstimationDiagnosticsResponse,
     EstimatorComparisonResponse,
     FactorPeerRankingResponse,
@@ -395,6 +399,14 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
             for strategy in ("equal_weight", "risk_parity")
         },
     }
+    bootstrap_uncertainty = bootstrap_backtest_uncertainty(
+        [point.strategy_value for point in backtest.path],
+        [point.benchmark_value for point in backtest.path],
+        risk_free_rate=request.risk_free_rate,
+        resamples=1_000,
+        block_length_days=21,
+        seed=request.seed,
+    )
 
     allocation = [
         AllocationItem(asset=ticker, weight=weight)
@@ -516,6 +528,28 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
             strategy=BacktestStatisticsResponse(**vars(backtest.strategy)),
             benchmark_statistics=BacktestStatisticsResponse(**vars(backtest.benchmark_statistics)),
             risk_diagnostics=BacktestRiskDiagnosticsResponse(**vars(backtest.risk_diagnostics)),
+            bootstrap_uncertainty=BacktestBootstrapUncertaintyResponse(
+                method="paired_circular_moving_block",
+                confidence_level=bootstrap_uncertainty.confidence_level,
+                resamples=bootstrap_uncertainty.resamples,
+                block_length_days=bootstrap_uncertainty.block_length_days,
+                seed=bootstrap_uncertainty.seed,
+                observations=bootstrap_uncertainty.observations,
+                strategy=_bootstrap_path_statistics_response(
+                    bootstrap_uncertainty.strategy
+                ),
+                benchmark=_bootstrap_path_statistics_response(
+                    bootstrap_uncertainty.benchmark
+                ),
+                strategy_cagr_above_benchmark_fraction=(
+                    bootstrap_uncertainty.strategy_cagr_above_benchmark_fraction
+                ),
+                disclaimer=(
+                    "Percentile intervals condition on the observed historical period "
+                    "and resample paired 21-day return blocks. They describe sampling "
+                    "uncertainty in this backtest, not a forecast range or guarantee."
+                ),
+            ),
             path=[BacktestPathPointResponse(**vars(point)) for point in backtest.path],
             rebalances=[RebalanceEventResponse(**vars(event)) for event in backtest.rebalances],
             disclaimer=(
@@ -536,6 +570,10 @@ def optimize_portfolio(request: PortfolioRequest) -> PortfolioResponse:
             "Optimization is long-only with explicit cash and per-asset bounds.",
             "Monte Carlo paths use constant-parameter geometric Brownian motion.",
             "Walk-forward weights use trailing observations only and include trading costs.",
+            (
+                "Backtest uncertainty uses 1000 paired circular moving-block bootstrap "
+                "resamples with 21-trading-day blocks and a reproducible seed."
+            ),
             "Native-currency returns are not converted for foreign-exchange movements.",
             *(
                 [
@@ -835,6 +873,17 @@ def _portfolio_summary(result: Any) -> PortfolioSummary:
         expected_return=result.expected_return,
         volatility=result.volatility,
         sharpe_ratio=result.sharpe_ratio,
+    )
+
+
+def _bootstrap_path_statistics_response(result: Any) -> BootstrapPathStatisticsResponse:
+    return BootstrapPathStatisticsResponse(
+        cagr=BootstrapMetricIntervalResponse(**vars(result.cagr)),
+        annualized_volatility=BootstrapMetricIntervalResponse(
+            **vars(result.annualized_volatility)
+        ),
+        sharpe_ratio=BootstrapMetricIntervalResponse(**vars(result.sharpe_ratio)),
+        maximum_drawdown=BootstrapMetricIntervalResponse(**vars(result.maximum_drawdown)),
     )
 
 
