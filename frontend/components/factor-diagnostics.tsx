@@ -3,7 +3,7 @@
 import type { Data } from "plotly.js";
 
 import { PlotlyChart } from "@/components/plotly-chart";
-import type { FactorPeerRanking } from "@/types/api";
+import type { FactorPeerRanking, FactorValidationPoint } from "@/types/api";
 
 type FactorLabels = {
   value: string;
@@ -149,6 +149,65 @@ export function ValuationDistributionChart({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+export function MomentumValidationChart({
+  path,
+  labels,
+}: {
+  path: FactorValidationPoint[];
+  labels: {
+    gross: string;
+    net: string;
+    equalWeight: string;
+    valueAxis: string;
+  };
+}) {
+  const dates = path.length
+    ? [path[0].formation_date, ...path.map((point) => point.date)]
+    : [];
+  const trace = (
+    name: string,
+    values: number[],
+    color: string,
+    dash: "solid" | "dot" = "solid",
+  ) => ({
+    type: "scatter",
+    mode: "lines",
+    name,
+    x: dates,
+    y: [1, ...values].map((value) => value * 100),
+    line: { color, width: 2, dash },
+    hovertemplate: `%{x}<br>${name}: %{y:.1f}<extra></extra>`,
+  }) as Data;
+
+  return (
+    <div className="chart-medium">
+      <PlotlyChart
+        data={[
+          trace(labels.gross, path.map((point) => point.gross_value), "#d08a31"),
+          trace(labels.net, path.map((point) => point.net_value), "#4f8fca"),
+          trace(
+            labels.equalWeight,
+            path.map((point) => point.equal_weight_value),
+            "#8492a6",
+            "dot",
+          ),
+        ]}
+        layout={{
+          hovermode: "x unified",
+          legend: { orientation: "h", x: 0, y: 1.12 },
+          margin: { l: 62, r: 24, t: 44, b: 48 },
+          xaxis: { gridcolor: "rgba(148,163,184,.08)" },
+          yaxis: {
+            title: { text: labels.valueAxis },
+            gridcolor: "rgba(148,163,184,.12)",
+            rangemode: "tozero",
+          },
+        }}
+      />
     </div>
   );
 }

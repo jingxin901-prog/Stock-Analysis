@@ -121,6 +121,49 @@ class FactorScoreResponse(BaseModel):
     current_snapshot: bool = True
 
 
+class FactorValidationPointResponse(BaseModel):
+    formation_date: str
+    date: str
+    rank_ic: float
+    top_group_return: float
+    bottom_group_return: float
+    long_short_spread: float
+    gross_value: float
+    net_value: float
+    equal_weight_value: float
+    turnover: float
+    transaction_cost: float
+    selected_assets: list[str]
+
+
+class FactorValidationResponse(BaseModel):
+    status: Literal["available", "insufficient_data"]
+    method: Literal["walk_forward_price_momentum"] = "walk_forward_price_momentum"
+    start_date: str | None = None
+    end_date: str | None = None
+    universe: list[str] = Field(default_factory=list)
+    universe_size: int = 0
+    rebalance_periods: int = 0
+    lookback_days: list[int] = Field(default_factory=lambda: [63, 126, 252])
+    forward_days: int = 21
+    transaction_cost_bps: float = 10.0
+    mean_rank_ic: float | None = None
+    rank_ic_t_stat: float | None = None
+    positive_ic_fraction: float | None = None
+    gross_cagr: float | None = None
+    net_cagr: float | None = None
+    equal_weight_cagr: float | None = None
+    top_minus_bottom_annualized_spread: float | None = None
+    annualized_volatility: float | None = None
+    sharpe_ratio: float | None = None
+    maximum_drawdown: float | None = None
+    average_turnover: float | None = None
+    cumulative_transaction_cost: float | None = None
+    path: list[FactorValidationPointResponse] = Field(default_factory=list)
+    message: str
+    disclaimer: str
+
+
 class InstrumentContextResponse(BaseModel):
     market: str
     currency: str
@@ -179,6 +222,7 @@ class StockAnalysisResponse(BaseModel):
     risk: RiskMetricsResponse
     fundamentals: FundamentalSnapshotResponse
     factor_score: FactorScoreResponse
+    factor_validation: FactorValidationResponse | None = None
     ml_experiment: MLExperimentResponse
     disclaimer: str
 

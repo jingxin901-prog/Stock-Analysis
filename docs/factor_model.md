@@ -2,10 +2,12 @@
 
 ## Scope
 
-QuantAI currently produces a retrieval-time cross-sectional ranking. It does not
-yet construct a historically point-in-time factor backtest. Current fundamental
-snapshots must therefore not be joined to past prices and presented as if those
-fundamentals had been known historically.
+QuantAI produces a retrieval-time Value, Momentum, and Quality cross-sectional
+ranking plus a separate point-in-time historical validation of price momentum.
+The historical study deliberately excludes Value and Quality because Yahoo
+Finance does not provide timestamped historical financial statements. Current
+fundamental snapshots are never joined to past prices as if they had been known
+historically.
 
 ## Raw components
 
@@ -71,6 +73,28 @@ the realized peer set and highlights the target security. Only finite positive
 multiples are comparable; missing and nonpositive values remain visibly
 unavailable and are never represented as zero.
 
+## Walk-forward momentum validation
+
+The dashboard reuses the realized peer price histories and forms a momentum
+score every 21 trading days. At each formation date, 63-, 126-, and 252-day
+trailing returns are independently converted to cross-sectional percentile
+ranks and averaged. The equal-weighted top 30% of the universe is then held for
+the next, non-overlapping 21-trading-day period. No future return participates
+in score formation.
+
+The study reports Spearman rank information coefficient (IC) between the score
+and next-period return, the fraction of positive IC periods, top-minus-bottom
+gross return spread, gross and cost-adjusted top-group paths, an equal-weight
+peer control, volatility, Sharpe ratio, drawdown, one-way turnover, and modeled
+transaction cost. The first allocation includes the move from cash; subsequent
+turnover compares target weights with drifted pre-trade weights. Costs are
+charged at 10 basis points per unit of one-way turnover.
+
+This is a validation of a price-only signal, not the complete displayed Quant
+Score. The current peer catalog introduces survivorship and selection bias,
+small cross-sections make IC estimates noisy, and the cost model omits spreads,
+impact, taxes, and borrow constraints.
+
 ## Scoring
 
 1. Convert inputs to finite numeric values.
@@ -105,3 +129,18 @@ GOOGL. All nine factor components were present for every security.
 The result is intentionally reported as a validation snapshot. Rankings may
 change when prices move, financial statements update, vendor fields are revised,
 or the comparison universe changes.
+
+## Recorded walk-forward validation
+
+On 14 October 2026, the AAPL automatic peer universe produced 128
+non-overlapping periods from 4 January 2016 through 14 September 2026. Mean rank
+IC was 0.029 (t-statistic 0.68), with positive IC in 50.78% of periods. The
+top-group gross and net CAGRs were 32.24% and 31.71%, compared with 33.66% for
+the peer equal-weight control. The annualized top-minus-bottom gross spread was
+5.40%, net volatility was 30.82%, net Sharpe was 1.055, maximum drawdown was
+-45.56%, and average one-way turnover was 33.29%.
+
+The simple equal-weight control outperformed the cost-adjusted momentum group in
+this selected surviving-stock sample. This negative comparison is retained
+because the purpose is to test whether model complexity adds evidence, not to
+present a favorable result.

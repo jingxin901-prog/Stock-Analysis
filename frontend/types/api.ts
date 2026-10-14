@@ -110,6 +110,49 @@ export interface FactorScore {
   current_snapshot: boolean;
 }
 
+export interface FactorValidationPoint {
+  formation_date: string;
+  date: string;
+  rank_ic: number;
+  top_group_return: number;
+  bottom_group_return: number;
+  long_short_spread: number;
+  gross_value: number;
+  net_value: number;
+  equal_weight_value: number;
+  turnover: number;
+  transaction_cost: number;
+  selected_assets: string[];
+}
+
+export interface FactorValidation {
+  status: "available" | "insufficient_data";
+  method: "walk_forward_price_momentum";
+  start_date: string | null;
+  end_date: string | null;
+  universe: string[];
+  universe_size: number;
+  rebalance_periods: number;
+  lookback_days: number[];
+  forward_days: number;
+  transaction_cost_bps: number;
+  mean_rank_ic: number | null;
+  rank_ic_t_stat: number | null;
+  positive_ic_fraction: number | null;
+  gross_cagr: number | null;
+  net_cagr: number | null;
+  equal_weight_cagr: number | null;
+  top_minus_bottom_annualized_spread: number | null;
+  annualized_volatility: number | null;
+  sharpe_ratio: number | null;
+  maximum_drawdown: number | null;
+  average_turnover: number | null;
+  cumulative_transaction_cost: number | null;
+  path: FactorValidationPoint[];
+  message: string;
+  disclaimer: string;
+}
+
 export interface InstrumentContext {
   market: string;
   currency: string;
@@ -168,6 +211,7 @@ export interface StockAnalysisResponse {
   risk: RiskMetrics;
   fundamentals: FundamentalSnapshot;
   factor_score: FactorScore;
+  factor_validation?: FactorValidation | null;
   ml_experiment: MLExperiment;
   disclaimer: string;
 }

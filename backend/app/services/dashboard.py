@@ -32,7 +32,12 @@ from app.quant.data import (
     select_factor_peers,
 )
 from app.quant.explainability import ExplanationLocale, generate_stock_explanation
-from app.quant.factors import build_factor_record, score_factor_universe
+from app.quant.factors import (
+    FactorModelError,
+    build_factor_record,
+    run_momentum_factor_validation,
+    score_factor_universe,
+)
 from app.quant.metrics import calculate_financial_metrics
 from app.quant.portfolio import (
     PortfolioOptimizationError,
@@ -59,6 +64,8 @@ from app.schemas.dashboard import (
     EstimatorComparisonResponse,
     FactorPeerRankingResponse,
     FactorScoreResponse,
+    FactorValidationPointResponse,
+    FactorValidationResponse,
     FrontierPoint,
     FundamentalSnapshotResponse,
     IndexPoint,
@@ -217,14 +224,25 @@ def get_stock_analysis(
         selection_method = "custom"
 
     records = [build_factor_record(requested_snapshot, prices)]
+    factor_price_histories = {symbol: prices}
     other_tickers = [candidate for candidate in universe if candidate != symbol]
     peer_workers = 1 if instrument.market != "us" else min(6, len(other_tickers))
     with ThreadPoolExecutor(max_workers=peer_workers) as executor:
-        peer_records = executor.map(_safe_load_factor_record, other_tickers)
-        records.extend(record for record in peer_records if record is not None)
+        futures = [
+            executor.submit(_safe_load_factor_bundle, candidate, start)
+            for candidate in other_tickers
+        ]
+        for future in futures:
+            bundle = future.result()
+            if bundle is None:
+                continue
+            record, peer_prices = bundle
+            records.append(record)
+            factor_price_histories[str(record["ticker"])] = peer_prices
     ranking = score_factor_universe(pd.DataFrame(records))
     row = ranking.loc[ranking["ticker"] == symbol].iloc[0]
     available_universe = ranking["ticker"].astype(str).tolist()
+    factor_validation = _factor_validation_response(factor_price_histories)
 
     response = StockAnalysisResponse(
         ticker=symbol,
@@ -290,6 +308,7 @@ def get_stock_analysis(
             peer_rankings=_factor_peer_rankings(ranking),
             current_snapshot=requested_snapshot.source == "yfinance",
         ),
+        factor_validation=factor_validation,
         ml_experiment=_load_ml_experiment(symbol),
         disclaimer=(
             "Historical and current-snapshot research only. Results are not forecasts or "
@@ -784,19 +803,112 @@ def _safe_fundamental_snapshot(ticker: str) -> FundamentalSnapshot:
         )
 
 
-def _load_factor_record(ticker: str) -> dict[str, str | float | None]:
-    prices = load_stock_data(ticker)
+def _load_factor_bundle(
+    ticker: str, start: str
+) -> tuple[dict[str, str | float | None], pd.DataFrame]:
+    prices = load_stock_data(ticker, start=start)
     snapshot = _safe_fundamental_snapshot(ticker)
-    return build_factor_record(snapshot, prices)
+    return build_factor_record(snapshot, prices), prices
+
+
+def _safe_load_factor_bundle(
+    ticker: str, start: str
+) -> tuple[dict[str, str | float | None], pd.DataFrame] | None:
+    """Return optional peer inputs so one provider failure cannot fail the target."""
+
+    try:
+        return _load_factor_bundle(ticker, start)
+    except MarketDataError:
+        return None
+
+
+def _load_factor_record(ticker: str) -> dict[str, str | float | None]:
+    """Load one current factor record for record-only callers."""
+
+    record, _ = _load_factor_bundle(ticker, "2015-01-01")
+    return record
 
 
 def _safe_load_factor_record(ticker: str) -> dict[str, str | float | None] | None:
-    """Return an optional peer record so one provider failure cannot fail the target."""
+    """Backward-compatible record-only wrapper used by focused service tests."""
 
     try:
         return _load_factor_record(ticker)
     except MarketDataError:
         return None
+
+
+def _factor_validation_response(
+    price_histories: dict[str, pd.DataFrame],
+) -> FactorValidationResponse:
+    disclaimer = (
+        "Walk-forward validation uses trailing 3-, 6-, and 12-month price momentum only. "
+        "The current peer universe is survivorship-biased, transaction costs are simplified, "
+        "and historical value or quality factors are excluded because point-in-time financial "
+        "statements are unavailable from the selected data source. Results are not forecasts."
+    )
+    try:
+        result = run_momentum_factor_validation(
+            price_histories,
+            lookback_days=(63, 126, 252),
+            forward_days=21,
+            transaction_cost_bps=10.0,
+        )
+    except FactorModelError as exc:
+        return FactorValidationResponse(
+            status="insufficient_data",
+            universe=sorted(price_histories),
+            universe_size=len(price_histories),
+            message=str(exc),
+            disclaimer=disclaimer,
+        )
+    return FactorValidationResponse(
+        status="available",
+        start_date=result.start_date,
+        end_date=result.end_date,
+        universe=list(result.universe),
+        universe_size=len(result.universe),
+        rebalance_periods=result.rebalance_periods,
+        lookback_days=list(result.lookback_days),
+        forward_days=result.forward_days,
+        transaction_cost_bps=result.transaction_cost_bps,
+        mean_rank_ic=result.mean_rank_ic,
+        rank_ic_t_stat=result.rank_ic_t_stat,
+        positive_ic_fraction=result.positive_ic_fraction,
+        gross_cagr=result.gross_cagr,
+        net_cagr=result.net_cagr,
+        equal_weight_cagr=result.equal_weight_cagr,
+        top_minus_bottom_annualized_spread=(
+            result.top_minus_bottom_annualized_spread
+        ),
+        annualized_volatility=result.annualized_volatility,
+        sharpe_ratio=result.sharpe_ratio,
+        maximum_drawdown=result.maximum_drawdown,
+        average_turnover=result.average_turnover,
+        cumulative_transaction_cost=result.cumulative_transaction_cost,
+        path=[
+            FactorValidationPointResponse(
+                formation_date=point.formation_date,
+                date=point.date,
+                rank_ic=point.rank_ic,
+                top_group_return=point.top_group_return,
+                bottom_group_return=point.bottom_group_return,
+                long_short_spread=point.long_short_spread,
+                gross_value=point.gross_value,
+                net_value=point.net_value,
+                equal_weight_value=point.equal_weight_value,
+                turnover=point.turnover,
+                transaction_cost=point.transaction_cost,
+                selected_assets=list(point.selected_assets),
+            )
+            for point in result.path
+        ],
+        message=(
+            "Available walk-forward price-momentum validation using non-overlapping "
+            "21-trading-day holding periods."
+        ),
+        disclaimer=disclaimer,
+    )
 
 
 def _price_points(data: pd.DataFrame) -> list[PricePoint]:

@@ -73,7 +73,8 @@ The three primary routes are:
 - `/market-overview`: latest market snapshots, one-year sparklines, and
   normalized cross-asset paths;
 - `/stock-analysis`: ticker search, OHLCV chart, risk metrics, current factor
-  score, fundamentals, saved machine-learning comparison, and a labeled
+  score, a trailing-only price-momentum validation with rank IC and a matched
+  equal-weight control, fundamentals, saved machine-learning comparison, and a labeled
   evidence-grounded explanation. A browser-local watchlist, shareable ticker
   state, price CSV export, and compact JSON research snapshot support repeated
   analysis;
@@ -138,6 +139,12 @@ reproducibility, ordered percentile bounds, paired strategy/benchmark sampling,
 constant-path Sharpe handling, and invalid path alignment. Frontend type checking,
 linting, and a production build also validate the bilingual table contract.
 
+The factor-validation extension is covered by deterministic tests for
+point-in-time score formation, monotonic synthetic ranks, transaction-cost drag,
+and insufficient-universe/history handling. A live AAPL peer run returned 128
+non-overlapping periods, and its Chinese desktop and 390-by-844 mobile layouts
+rendered without console warnings or errors.
+
 ## Limitations
 
 - Yahoo Finance responses are not guaranteed, institutional, or real-time.
@@ -149,7 +156,9 @@ linting, and a production build also validate the bilingual table contract.
   surviving universe, lookback, rebalance schedule, cost input, and benchmark.
 - Bootstrap intervals describe variation under historical block resampling; they
   do not capture regime changes or imply future coverage.
-- Factor values are current snapshots; they are not point-in-time backtests.
+- Value and Quality remain current snapshots. The historical panel validates
+  price momentum only and still inherits survivorship bias from the current
+  peer catalog.
 - Saved ML metrics are historical holdout evidence, not current forecasts.
 - OpenAI text generation requires a server-side API key; deterministic evidence
   summaries are used when it is not configured or the provider is unavailable.

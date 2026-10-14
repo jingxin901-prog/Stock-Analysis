@@ -230,6 +230,18 @@ waterfall decomposes the composite score into Value, Momentum, and Quality
 contributions, while small-multiple distributions place the target's PE, PB,
 and EV/EBITDA beside available peers. Missing and nonpositive valuation
 multiples are excluded and shown as unavailable rather than converted to zero.
+The same page now adds a point-in-time walk-forward validation of the price
+momentum component. It ranks trailing 63/126/252-day returns, holds the top group
+for non-overlapping 21-day periods, deducts turnover-based transaction costs,
+and compares gross and net wealth with a peer equal-weight control. Rank IC,
+positive-IC frequency, top-minus-bottom spread, turnover, Sharpe, and drawdown
+are reported. Historical Value and Quality are intentionally excluded because
+the data source lacks point-in-time financial statements.
+
+In the recorded 14 October 2026 AAPL peer study, mean rank IC was 0.029 across
+128 periods and the cost-adjusted top-group CAGR was 31.71%, below the 33.66%
+peer equal-weight CAGR. This deliberately retained negative control shows that
+the selected small-universe momentum rule did not justify its added complexity.
 See [docs/factor_model.md](docs/factor_model.md) for the complete methodology.
 
 ## Portfolio optimization, Monte Carlo simulation, and backtesting
@@ -404,7 +416,8 @@ Open `http://localhost:3000`. The dashboard contains:
 
 - **Market Overview** for the S&P 500, NASDAQ Composite, VIX, and Bitcoin;
 - **Stock Analysis** with TradingView OHLCV visualization, financial and risk
-  metrics, current factor scores, saved ML experiment evidence, a browser-local
+  metrics, current factor scores, point-in-time momentum validation with a
+  matched equal-weight control, saved ML experiment evidence, a browser-local
   research watchlist, global company-name and ticker search,
   Shanghai/Shenzhen/Hong Kong symbol helpers,
   market-matched factor references, shareable ticker URLs, and JSON/CSV exports;

@@ -131,6 +131,14 @@ descriptive cross-sectional diagnostics. Nonfinite, missing, and nonpositive
 valuation multiples are excluded and surfaced as unavailable rather than
 imputed to zero.
 
+A separate walk-forward experiment validates only the price-momentum component,
+because the selected source does not supply point-in-time historical financial
+statements for Value and Quality. Every 21 trading days, 63-, 126-, and 252-day
+trailing returns are percentile-ranked across the realized peer universe and
+averaged. The equal-weighted top 30% is held for the next non-overlapping period.
+The experiment measures next-period Spearman rank IC, group-return spread,
+turnover, transaction costs, and gross, net, and equal-weight wealth paths.
+
 ### 3.3 Portfolio optimization
 
 Adjusted-price series are inner-aligned before daily simple returns are
@@ -293,6 +301,16 @@ All securities had complete coverage of the nine requested components. These
 scores are universe-relative snapshots and do not constitute expected-return
 estimates.
 
+The 14 October 2026 AAPL automatic-peer momentum study contained 128
+non-overlapping periods from 4 January 2016 through 14 September 2026. Mean rank
+IC was 0.029 with a 0.68 t-statistic, and 50.78% of periods had positive IC. The
+top group recorded 32.24% gross CAGR and 31.71% net CAGR after 10-basis-point
+turnover costs, compared with 33.66% for the peer equal-weight control. The
+annualized gross top-minus-bottom spread was 5.40%, net Sharpe was 1.055,
+maximum drawdown was -45.56%, and average one-way turnover was 33.29%. The
+equal-weight control's higher CAGR is evidence against claiming that this simple
+momentum rule added value in the selected sample.
+
 The portfolio experiment used AAPL, MSFT, NVDA, and TSLA with a fixed 15% cash
 reserve and 60% per-asset cap. The maximum-Sharpe risky allocation was 20.33%
 AAPL, 6.48% MSFT, 51.17% NVDA, and 7.01% TSLA. Historical sample estimates gave
@@ -355,7 +373,10 @@ Yahoo Finance is not an institutional point-in-time data source, and the small
 current universe is exposed to survivorship and selection bias. Historical
 mean returns and covariance are unstable, while the Monte Carlo model assumes
 constant parameters and lognormal paths. Factor scores are cross-sectional
-snapshots rather than backtested portfolios.
+snapshots. Only price momentum receives historical validation; Value and Quality
+remain current snapshots until timestamped fundamental histories are available.
+The momentum test uses a current surviving peer catalog and is therefore exposed
+to selection and survivorship bias despite its trailing-only signal construction.
 
 International price series remain denominated in their native quote currencies.
 The portfolio model labels the monetary display unit but does not translate

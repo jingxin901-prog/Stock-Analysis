@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import {
   FactorContributionChart,
+  MomentumValidationChart,
   ValuationDistributionChart,
 } from "@/components/factor-diagnostics";
 import { PriceChart } from "@/components/price-chart";
@@ -118,6 +119,10 @@ type StockActionMessage =
 
 function percent(value: number) {
   return `${(value * 100).toFixed(2)}%`;
+}
+
+function optionalPercent(value: number | null | undefined) {
+  return value === null || value === undefined ? "N/A" : percent(value);
 }
 
 function number(value: number | null, digits = 2) {
@@ -779,6 +784,81 @@ export default function StockAnalysisPage() {
                 universe: factorUniverseLabel,
                 coverage: percent(data.factor_score.data_coverage),
               })}</ResearchNotice>
+            </Panel>
+          ) : null}
+
+          {data.factor_validation ? (
+            <Panel
+              title={t("stock.validationTitle")}
+              eyebrow={t("stock.validationEyebrow")}
+              action={data.factor_validation.status === "available" ? (
+                <span className="panel-meta">
+                  {data.factor_validation.start_date} — {data.factor_validation.end_date}
+                </span>
+              ) : null}
+            >
+              {data.factor_validation.status === "available" && data.factor_validation.path.length ? (
+                <>
+                  <ResearchNotice>{t("stock.validationDescription")}</ResearchNotice>
+                  <div className="metrics-grid factor-validation-metrics">
+                    <MetricCard
+                      label={t("stock.meanRankIc")}
+                      value={number(data.factor_validation.mean_rank_ic, 3)}
+                      detail={t("stock.rankIcDetail", {
+                        value: number(data.factor_validation.rank_ic_t_stat, 2),
+                      })}
+                      tone={(data.factor_validation.mean_rank_ic ?? 0) >= 0 ? "positive" : "negative"}
+                    />
+                    <MetricCard
+                      label={t("stock.positiveIc")}
+                      value={optionalPercent(data.factor_validation.positive_ic_fraction)}
+                      detail={t("stock.positiveIcDetail", {
+                        periods: data.factor_validation.rebalance_periods,
+                      })}
+                      tone="accent"
+                    />
+                    <MetricCard
+                      label={t("stock.netMomentumCagr")}
+                      value={optionalPercent(data.factor_validation.net_cagr)}
+                      detail={t("stock.netMomentumDetail", {
+                        cost: data.factor_validation.transaction_cost_bps,
+                      })}
+                      tone={(data.factor_validation.net_cagr ?? 0) >= 0 ? "positive" : "negative"}
+                    />
+                    <MetricCard
+                      label={t("stock.longShortSpread")}
+                      value={optionalPercent(
+                        data.factor_validation.top_minus_bottom_annualized_spread,
+                      )}
+                      detail={t("stock.longShortDetail")}
+                      tone={(data.factor_validation.top_minus_bottom_annualized_spread ?? 0) >= 0 ? "positive" : "negative"}
+                    />
+                  </div>
+                  <MomentumValidationChart
+                    path={data.factor_validation.path}
+                    labels={{
+                      gross: t("stock.factorValidationGross"),
+                      net: t("stock.factorValidationNet"),
+                      equalWeight: t("stock.factorValidationEqual"),
+                      valueAxis: t("stock.factorValidationAxis"),
+                    }}
+                  />
+                  <div className="definition-grid factor-validation-details">
+                    <div className="definition-item"><span>{t("stock.grossMomentumCagr")}</span><strong>{optionalPercent(data.factor_validation.gross_cagr)}</strong></div>
+                    <div className="definition-item"><span>{t("stock.equalWeightCagr")}</span><strong>{optionalPercent(data.factor_validation.equal_weight_cagr)}</strong></div>
+                    <div className="definition-item"><span>{t("stock.factorVolatility")}</span><strong>{optionalPercent(data.factor_validation.annualized_volatility)}</strong></div>
+                    <div className="definition-item"><span>{t("stock.factorSharpe")}</span><strong>{number(data.factor_validation.sharpe_ratio, 3)}</strong></div>
+                    <div className="definition-item"><span>{t("stock.factorDrawdown")}</span><strong>{optionalPercent(data.factor_validation.maximum_drawdown)}</strong></div>
+                    <div className="definition-item"><span>{t("stock.factorTurnover")}</span><strong>{optionalPercent(data.factor_validation.average_turnover)}</strong></div>
+                    <div className="definition-item"><span>{t("stock.factorCosts")}</span><strong>{optionalPercent(data.factor_validation.cumulative_transaction_cost)}</strong></div>
+                  </div>
+                  <ResearchNotice>{t("stock.factorValidationNotice")}</ResearchNotice>
+                </>
+              ) : (
+                <div className="empty-state">
+                  <div><strong>{t("stock.validationUnavailable")}</strong></div>
+                </div>
+              )}
             </Panel>
           ) : null}
 
